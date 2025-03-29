@@ -1,0 +1,185 @@
+import numpy as np
+import pandas as pd
+import xgboost as xgb
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from sklearn.metrics import confusion_matrix, classification_report, roc_auc_score
+import matplotlib.pyplot as plt
+import seaborn as sns
+import os
+import joblib
+import logging
+
+logger = logging.getLogger(__name__)
+
+def train_model(X, y, test_size=0.2, random_state=42):
+    """
+    Entrena un modelo XGBoost para clasificación de CVs.
+    
+    Args:
+        X: Matriz de características
+        y: Vector de etiquetas
+        test_size: Proporción del conjunto de prueba
+        random_state: Semilla aleatoria
+        
+    Returns:
+        model: Modelo entrenado
+        metrics: Diccionario con métricas de rendimiento
+    """
+    # Dividir datos en entrenamiento y prueba
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=random_state, stratify=y
+    )
+    
+    # Configurar modelo XGBoost
+    model = xgb.XGBClassifier(
+        objective='binary:logistic',
+        eval_metric='logloss',
+        use_label_encoder=False,
+        n_estimators=100,
+        max_depth=5,
+        learning_rate=0.1,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        random_state=random_state
+    )
+    
+    # Entrenar modelo
+    model.fit(
+        X_train, y_train,
+        eval_set=[(X_test, y_test)],
+        early_stopping_rounds=10,
+        verbose=False
+    )
+    
+    # Evaluar modelo
+    y_pred = model.predict(X_test)
+    y_prob = model.predict_proba(X_test)[:, 1]
+    
+    # Calcular métricas
+    metrics = {
+        'accuracy': accuracy_score(y_test, y_pred),
+        'precision': precision_score(y_test, y_pred),
+        'recall': recall_score(y_test, y_pred),
+        'f1': f1_score(y_test, y_pred),
+        'auc': roc_auc_score(y_test, y_prob)
+    }
+    
+    # Validación cruzada
+    cv_scores = cross_val_score(model, X, y, cv=5, scoring='f1')
+    metrics['cv_f1_mean'] = cv_scores.mean()
+    metrics['cv_f1_std'] = cv_scores.std()
+    
+    return model, metrics
+
+def evaluate_model(model, X, y, offer_ids, cv_ids, output_dir):
+    """
+    Evalúa el modelo y genera visualizaciones y métricas.
+    
+    Args:
+        model: Modelo entrenado
+        X: Matriz de características
+        y: Vector de etiquetas
+        offer_ids: IDs de ofertas
+        cv_ids: IDs de CVs
+        output_dir: Directorio para guardar resultados
+    """
+    # Dividir datos en entrenamiento y prueba
+    X_train, X_test, y_train, y_test, offer_ids_train, offer_ids_test, cv_ids_train, cv_ids_test = train_test_split(
+        X, y, offer_ids, cv_ids, test_size=0.2, random_state=42, stratify=y
+    )
+    
+    # Predecir en conjunto de prueba
+    y_pred = model.predict(X_test)
+    y_prob = model.predict_proba(X_test)[:, 1]
+    
+    # Crear DataFrame con resultados
+    results_df = pd.DataFrame({
+        'offer_id': offer_ids_test,
+        'cv_id': cv_ids_test,
+        'true_label': y_test,
+        'predicted_label': y_pred,
+        'probability': y_prob,
+        'affinity_percentage': y_prob * 100  # Porcentaje de afinidad
+    })
+    
+    # Guardar resultados
+    results_path = os.path.join(output_dir, 'prediction_results.csv')
+    results_df.to_csv(results_path, index=False)
+    
+    # Guardar modelo
+    model_path = os.path.join(output_dir, 'cv_classifier_model.pkl')
+    joblib.dump(model, model_path)
+    
+    # Generar matriz de confusión
+    cm = confusion_matrix(y_test, y_pred)
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
+                xticklabels=['Rechazado', 'Aceptado'],
+                yticklabels=['Rechazado', 'Aceptado'])
+    plt.xlabel('Predicción')
+    plt.ylabel('Valor Real')
+    plt.title('Matriz de Confusión')
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, 'confusion_matrix.png'))
+    
+    # Generar informe de clasificación
+    report = classification_report(y_test, y_pred, output_dict=True)
+    report_df = pd.DataFrame(report).transpose()
+    report_df.to_csv(os.path.join(output_dir, 'classification_report.csv'))
+    
+    # Generar histograma de afinidad
+    plt.figure(figsize=(10, 6))
+    sns.histplot(data=results_df, x='affinity_percentage', hue='true_label', bins=20, kde=True)
+    plt.xlabel('Porcentaje de Afinidad')
+    plt.ylabel('Frecuencia')
+    plt.title('Distribución de Afinidad por Clase')
+    plt.savefig(os.path.join(output_dir, 'affinity_distribution.png'))
+    
+    # Generar gráfico de importancia de características
+    plt.figure(figsize=(10, 6))
+    xgb.plot_importance(model)
+    plt.title('Importancia de Características')
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, 'feature_importance.png'))
+    
+    # Guardar métricas en un archivo
+    metrics = {
+        'accuracy': accuracy_score(y_test, y_pred),
+        'precision': precision_score(y_test, y_pred),
+        'recall': recall_score(y_test, y_pred),
+        'f1': f1_score(y_test, y_pred),
+        'auc': roc_auc_score(y_test, y_prob)
+    }
+    
+    with open(os.path.join(output_dir, 'metrics.txt'), 'w') as f:
+        for metric_name, metric_value in metrics.items():
+            f.write(f"{metric_name}: {metric_value}\n")
+
+def predict(model, X, offer_ids, cv_ids):
+    """
+    Realiza predicciones con el modelo entrenado.
+    
+    Args:
+        model: Modelo entrenado
+        X: Matriz de características
+        offer_ids: IDs de ofertas
+        cv_ids: IDs de CVs
+        
+    Returns:
+        DataFrame con predicciones y porcentajes de afinidad
+    """
+    # Predecir
+    y_pred = model.predict(X)
+    y_prob = model.predict_proba(X)[:, 1]
+    
+    # Crear DataFrame con resultados
+    results_df = pd.DataFrame({
+        'offer_id': offer_ids,
+        'cv_id': cv_ids,
+        'predicted_label': y_pred,
+        'probability': y_prob,
+        'affinity_percentage': y_prob * 100  # Porcentaje de afinidad
+    })
+    
+    return results_df

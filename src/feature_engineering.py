@@ -1,0 +1,193 @@
+import numpy as np
+import pandas as pd
+from sklearn.feature_extraction.text import TfidfVectorizer
+from transformers import AutoTokenizer, AutoModel
+import torch
+from sklearn.metrics.pairwise import cosine_similarity
+import logging
+import re
+
+logger = logging.getLogger(__name__)
+
+# Modelos BERT multilingües
+BERT_MODEL_NAME = "distilbert-base-multilingual-cased"
+
+class BertEncoder:
+    def __init__(self, model_name=BERT_MODEL_NAME):
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.model = AutoModel.from_pretrained(model_name)
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model.to(self.device)
+        
+    def encode(self, texts, batch_size=8):
+        """Codifica textos usando BERT."""
+        embeddings = []
+        
+        for i in range(0, len(texts), batch_size):
+            batch_texts = texts[i:i+batch_size]
+            
+            # Tokenizar textos
+            encoded_input = self.tokenizer(
+                batch_texts, 
+                padding=True, 
+                truncation=True, 
+                max_length=512, 
+                return_tensors='pt'
+            ).to(self.device)
+            
+            # Obtener embeddings
+            with torch.no_grad():
+                model_output = self.model(**encoded_input)
+                
+            # Usar el embedding del token [CLS] como representación del documento
+            batch_embeddings = model_output.last_hidden_state[:, 0, :].cpu().numpy()
+            embeddings.append(batch_embeddings)
+            
+        return np.vstack(embeddings)
+
+def extract_keywords(text, language):
+    """
+    Extrae palabras clave relevantes del texto basadas en patrones específicos
+    para habilidades técnicas, educación, experiencia, etc.
+    """
+    keywords = []
+    
+    # Patrones para habilidades técnicas (adaptados para español e inglés)
+    tech_patterns = [
+        r'\b(?:python|java|c\+\+|javascript|html|css|sql|nosql|mongodb|react|angular|vue|node\.js|django|flask|spring|aws|azure|gcp|docker|kubernetes|git|ci/cd|jenkins|terraform|ansible)\b',
+        r'\b(?:machine learning|deep learning|nlp|computer vision|data science|big data|hadoop|spark|tableau|power bi|excel|word|powerpoint|photoshop|illustrator|indesign)\b',
+        r'\b(?:aprendizaje automático|inteligencia artificial|procesamiento de lenguaje natural|visión por computadora|ciencia de datos)\b'
+    ]
+    
+    # Patrones para educación
+    edu_patterns = [
+        r'\b(?:phd|ph\.d|doctor|doctorate|master|msc|mba|bachelor|licenciatura|ingenier[oa]|técnico)\b',
+        r'\b(?:universidad|university|instituto|institute|college|escuela|school)\b'
+    ]
+    
+    # Patrones para experiencia
+    exp_patterns = [
+        r'\b(?:\d+\s+años?|years?)\b',
+        r'\b(?:experiencia|experience|senior|junior|mid|level)\b'
+    ]
+    
+    # Combinar todos los patrones
+    all_patterns = tech_patterns + edu_patterns + exp_patterns
+    
+    # Extraer palabras clave basadas en patrones
+    for pattern in all_patterns:
+        matches = re.finditer(pattern, text.lower())
+        for match in matches:
+            keywords.append(match.group())
+    
+    return list(set(keywords))  # Eliminar duplicados
+
+def calculate_similarity(cv_vector, offer_vector):
+    """Calcula la similitud coseno entre un CV y una oferta."""
+    return cosine_similarity(cv_vector.reshape(1, -1), offer_vector.reshape(1, -1))[0][0]
+
+def extract_features(applications_df, processed_offers, processed_cvs):
+    """
+    Extrae características para el modelo de clasificación.
+    
+    Args:
+        applications_df: DataFrame con las relaciones entre ofertas y aplicantes
+        processed_offers: Diccionario con ofertas procesadas
+        processed_cvs: Diccionario con CVs procesados
+        
+    Returns:
+        X: Matriz de características
+        y: Vector de etiquetas (aceptado/rechazado)
+        offer_ids: IDs de ofertas correspondientes a cada fila
+        cv_ids: IDs de CVs correspondientes a cada fila
+    """
+    # Inicializar el codificador BERT
+    bert_encoder = BertEncoder()
+    
+    # Preparar datos para vectorización
+    offer_texts = []
+    offer_ids_list = []
+    cv_texts = []
+    cv_ids_list = []
+    labels = []
+    
+    # Extraer textos y etiquetas de las aplicaciones
+    for _, row in applications_df.iterrows():
+        offer_id = str(row['offer_id'])
+        cv_id = str(row['cv_id'])
+        
+        # Verificar si tenemos los textos procesados
+        if offer_id not in processed_offers or cv_id not in processed_cvs:
+            logger.warning(f"Falta texto procesado para oferta {offer_id} o CV {cv_id}")
+            continue
+            
+        offer_text = processed_offers[offer_id]['text']
+        cv_text = processed_cvs[cv_id]['text']
+        
+        # Agregar a las listas
+        offer_texts.append(offer_text)
+        offer_ids_list.append(offer_id)
+        cv_texts.append(cv_text)
+        cv_ids_list.append(cv_id)
+        
+        # Etiqueta (si está disponible en el DataFrame)
+        if 'accepted' in row:
+            labels.append(int(row['accepted']))
+        else:
+            # Si no hay etiqueta, asumimos que estamos en modo de inferencia
+            labels.append(-1)
+    
+    # Vectorizar textos con BERT
+    logger.info("Codificando ofertas con BERT...")
+    offer_vectors = bert_encoder.encode(offer_texts)
+    
+    logger.info("Codificando CVs con BERT...")
+    cv_vectors = bert_encoder.encode(cv_texts)
+    
+    # Calcular similitud entre ofertas y CVs
+    similarities = []
+    for i in range(len(offer_vectors)):
+        similarity = calculate_similarity(cv_vectors[i], offer_vectors[i])
+        similarities.append(similarity)
+    
+    # Extraer palabras clave
+    cv_keywords = []
+    offer_keywords = []
+    keyword_matches = []
+    
+    for i in range(len(offer_texts)):
+        offer_id = offer_ids_list[i]
+        cv_id = cv_ids_list[i]
+        
+        # Obtener idioma
+        offer_lang = processed_offers[offer_id]['language']
+        cv_lang = processed_cvs[cv_id]['language']
+        
+        # Extraer palabras clave
+        offer_kw = extract_keywords(offer_texts[i], offer_lang)
+        cv_kw = extract_keywords(cv_texts[i], cv_lang)
+        
+        # Calcular coincidencias de palabras clave
+        matches = len(set(offer_kw).intersection(set(cv_kw)))
+        
+        offer_keywords.append(offer_kw)
+        cv_keywords.append(cv_kw)
+        keyword_matches.append(matches)
+    
+    # Crear DataFrame con características
+    features_df = pd.DataFrame({
+        'offer_id': offer_ids_list,
+        'cv_id': cv_ids_list,
+        'bert_similarity': similarities,
+        'keyword_matches': keyword_matches,
+        'offer_length': [len(text.split()) for text in offer_texts],
+        'cv_length': [len(text.split()) for text in cv_texts],
+    })
+    
+    # Agregar características adicionales si es necesario
+    
+    # Convertir a matriz numpy para el modelo
+    X = features_df.drop(['offer_id', 'cv_id'], axis=1).values
+    y = np.array(labels)
+    
+    return X, y, offer_ids_list, cv_ids_list
