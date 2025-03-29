@@ -1,2 +1,44 @@
 .aider*
 .env
+# Archivos de credenciales
+psa-sabia-llm-dv-4329cd2ee0ae.json
+
+# Directorios de entorno virtual
+venv/
+env/
+.env/
+
+# Archivos de caché de Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Distribución / empaquetado
+dist/
+build/
+*.egg-info/
+
+# Archivos de registro
+*.log
+
+# Directorios de resultados
+results/
+
+# Archivos de configuración local
+.env
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+
+# Archivos de IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Archivos de datos grandes
+*.parquet
+*.csv
+*.pkl
