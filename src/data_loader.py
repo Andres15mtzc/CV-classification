@@ -70,10 +70,10 @@ def extract_text_from_image(file_path):
 
 def load_job_offers(directory):
     """
-    Carga todas las ofertas de trabajo desde archivos PDF.
+    Carga todas las ofertas de trabajo desde archivos HTML.
     
     Args:
-        directory: Directorio que contiene los PDFs de ofertas
+        directory: Directorio que contiene los HTMLs de ofertas
         
     Returns:
         Diccionario con ID de oferta como clave y texto como valor
@@ -85,10 +85,10 @@ def load_job_offers(directory):
         return offers
     
     for filename in os.listdir(directory):
-        if filename.endswith('.pdf'):
+        if filename.endswith(('.html', '.htm')):
             file_path = os.path.join(directory, filename)
             offer_id = os.path.splitext(filename)[0]  # Usar nombre de archivo como ID
-            text = extract_text_from_pdf(file_path)
+            text = extract_text_from_html(file_path)
             offers[offer_id] = text
             
     logger.info(f"Cargadas {len(offers)} ofertas de trabajo")
