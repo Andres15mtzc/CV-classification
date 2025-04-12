@@ -10,6 +10,22 @@ import os
 import joblib
 import logging
 
+# Definición de rutas hardcodeadas
+DATA_DIR = "data"
+CV_DIR = os.path.join(DATA_DIR, "cvs")
+JOB_OFFERS_DIR = os.path.join(DATA_DIR, "jobs")
+OUTPUT_DIR = os.path.join(DATA_DIR, "results")
+MODEL_PATH = os.path.join(OUTPUT_DIR, "cv_classifier_model.pkl")
+RESULTS_PATH = os.path.join(OUTPUT_DIR, "prediction_results.csv")
+METRICS_PATH = os.path.join(OUTPUT_DIR, "metrics.txt")
+CONFUSION_MATRIX_PATH = os.path.join(OUTPUT_DIR, "confusion_matrix.png")
+CLASSIFICATION_REPORT_PATH = os.path.join(OUTPUT_DIR, "classification_report.csv")
+AFFINITY_DISTRIBUTION_PATH = os.path.join(OUTPUT_DIR, "affinity_distribution.png")
+FEATURE_IMPORTANCE_PATH = os.path.join(OUTPUT_DIR, "feature_importance.png")
+
+# Asegurar que los directorios existan
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
 logger = logging.getLogger(__name__)
 
 def train_model(X, y, test_size=0.15, val_size=0.15, random_state=42):
@@ -90,7 +106,7 @@ def train_model(X, y, test_size=0.15, val_size=0.15, random_state=42):
     
     return model, metrics, data_splits
 
-def evaluate_model(model, X, y, offer_ids, cv_ids, output_dir, data_splits=None):
+def evaluate_model(model, X, y, offer_ids, cv_ids, output_dir=OUTPUT_DIR, data_splits=None):
     """
     Evalúa el modelo y genera visualizaciones y métricas.
     
@@ -138,12 +154,10 @@ def evaluate_model(model, X, y, offer_ids, cv_ids, output_dir, data_splits=None)
     })
     
     # Guardar resultados
-    results_path = os.path.join(output_dir, 'prediction_results.csv')
-    results_df.to_csv(results_path, index=False)
+    results_df.to_csv(RESULTS_PATH, index=False)
     
     # Guardar modelo
-    model_path = os.path.join(output_dir, 'cv_classifier_model.pkl')
-    joblib.dump(model, model_path)
+    joblib.dump(model, MODEL_PATH)
     
     # Generar matriz de confusión
     cm = confusion_matrix(y_test, y_pred)
@@ -155,12 +169,12 @@ def evaluate_model(model, X, y, offer_ids, cv_ids, output_dir, data_splits=None)
     plt.ylabel('Valor Real')
     plt.title('Matriz de Confusión')
     plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, 'confusion_matrix.png'))
+    plt.savefig(CONFUSION_MATRIX_PATH)
     
     # Generar informe de clasificación
     report = classification_report(y_test, y_pred, output_dict=True)
     report_df = pd.DataFrame(report).transpose()
-    report_df.to_csv(os.path.join(output_dir, 'classification_report.csv'))
+    report_df.to_csv(CLASSIFICATION_REPORT_PATH)
     
     # Generar histograma de afinidad
     plt.figure(figsize=(10, 6))
@@ -168,14 +182,14 @@ def evaluate_model(model, X, y, offer_ids, cv_ids, output_dir, data_splits=None)
     plt.xlabel('Porcentaje de Afinidad')
     plt.ylabel('Frecuencia')
     plt.title('Distribución de Afinidad por Clase')
-    plt.savefig(os.path.join(output_dir, 'affinity_distribution.png'))
+    plt.savefig(AFFINITY_DISTRIBUTION_PATH)
     
     # Generar gráfico de importancia de características
     plt.figure(figsize=(10, 6))
     xgb.plot_importance(model)
     plt.title('Importancia de Características')
     plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, 'feature_importance.png'))
+    plt.savefig(FEATURE_IMPORTANCE_PATH)
     
     # Guardar métricas en un archivo
     metrics = {
@@ -186,7 +200,7 @@ def evaluate_model(model, X, y, offer_ids, cv_ids, output_dir, data_splits=None)
         'auc': roc_auc_score(y_test, y_prob)
     }
     
-    with open(os.path.join(output_dir, 'metrics.txt'), 'w') as f:
+    with open(METRICS_PATH, 'w') as f:
         for metric_name, metric_value in metrics.items():
             f.write(f"{metric_name}: {metric_value}\n")
 

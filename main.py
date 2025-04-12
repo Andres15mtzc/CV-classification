@@ -13,10 +13,7 @@ JOB_OFFERS_DIR = os.path.join(DATA_DIR, "jobs")
 OUTPUT_DIR = os.path.join(DATA_DIR, "results")
 MODEL_PATH = os.path.join(OUTPUT_DIR, "cv_classifier_model.pkl")
 
-# Asegurar que los directorios existan
-os.makedirs(DATA_DIR, exist_ok=True)
-os.makedirs(CV_DIR, exist_ok=True)
-os.makedirs(JOB_OFFERS_DIR, exist_ok=True)
+# Asegurar que el directorio de resultados exista
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 def main():
@@ -41,7 +38,7 @@ def main():
     model, metrics, data_splits = train_model(X, y)
     
     print("Evaluando modelo...")
-    evaluate_model(model, X, y, offer_ids, cv_ids, OUTPUT_DIR, data_splits)
+    evaluate_model(model, X, y, offer_ids, cv_ids, data_splits=data_splits)
     
     print(f"Métricas del modelo:")
     for metric_name, metric_value in metrics.items():
