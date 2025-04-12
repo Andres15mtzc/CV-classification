@@ -33,11 +33,21 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 3. Instalar modelos de spaCy
+### 3. Instalar modelos de spaCy y recursos de NLTK
+
+Puedes instalar todos los recursos necesarios ejecutando:
+
+```
+python init_resources.py
+```
+
+O instalarlos manualmente:
 
 ```
 python -m spacy download es_core_news_sm
 python -m spacy download en_core_web_sm
+python -m nltk.downloader punkt
+python -m nltk.downloader stopwords
 ```
 
 Para el OCR, necesitarás instalar Tesseract:

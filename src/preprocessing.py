@@ -11,8 +11,14 @@ from langdetect import detect, LangDetectException
 try:
     nltk.download('punkt', quiet=True)
     nltk.download('stopwords', quiet=True)
-except:
-    pass
+    # Verificar que los recursos se descargaron correctamente
+    nltk.data.find('tokenizers/punkt')
+    nltk.data.find('corpora/stopwords')
+except Exception as e:
+    logging.warning(f"Error al descargar recursos de NLTK: {e}")
+    # Intentar descargar de forma explícita
+    nltk.download('punkt')
+    nltk.download('stopwords')
 
 # Cargar modelos de spaCy para diferentes idiomas
 try:
