@@ -11,13 +11,29 @@ Este sistema analiza CVs y ofertas de trabajo para determinar si un candidato de
 - Modelo de clasificación XGBoost
 - Métricas de rendimiento y visualizaciones
 
-## Requisitos
+## Configuración del Entorno
+
+### 1. Crear un entorno virtual
+
+#### Windows
+```
+python -m venv venv
+venv\Scripts\activate
+```
+
+#### Linux/macOS
+```
+python3 -m venv venv
+source venv/bin/activate
+```
+
+### 2. Instalar dependencias
 
 ```
 pip install -r requirements.txt
 ```
 
-Además, necesitarás instalar los modelos de spaCy:
+### 3. Instalar modelos de spaCy
 
 ```
 python -m spacy download es_core_news_sm
@@ -39,9 +55,29 @@ Para el OCR, necesitarás instalar Tesseract:
 
 ## Uso
 
+### 1. Activar el entorno virtual (si no está activado)
+
+#### Windows
 ```
-python main.py --applications ruta/a/applications.parquet --offers_dir ruta/a/ofertas --cv_dir ruta/a/cvs --output_dir resultados
+venv\Scripts\activate
 ```
+
+#### Linux/macOS
+```
+source venv/bin/activate
+```
+
+### 2. Ejecutar el programa
+
+```
+python main.py
+```
+
+El programa utilizará las rutas predefinidas en la carpeta "data":
+- applications.parquet: Datos de aplicaciones
+- cvs/: Directorio con CVs
+- jobs/: Directorio con ofertas de trabajo
+- results/: Directorio donde se guardarán los resultados
 
 ## Resultados
 
