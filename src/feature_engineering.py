@@ -1,23 +1,35 @@
 import numpy as np
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
-from transformers import AutoTokenizer, AutoModel
 import torch
 from sklearn.metrics.pairwise import cosine_similarity
 import logging
 import re
+import os
+
+# Configurar variable de entorno para evitar el error de torch.compiler
+os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 
 logger = logging.getLogger(__name__)
 
-# Modelos BERT multilingües
-BERT_MODEL_NAME = "distilbert-base-multilingual-cased"
-
-class BertEncoder:
-    def __init__(self, model_name=BERT_MODEL_NAME):
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.model = AutoModel.from_pretrained(model_name)
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.model.to(self.device)
+# Usar TF-IDF en lugar de BERT para evitar problemas de compatibilidad
+class TextEncoder:
+    def __init__(self, max_features=5000):
+        self.vectorizer = TfidfVectorizer(
+            max_features=max_features,
+            min_df=2,
+            max_df=0.85,
+            stop_words='english',
+            ngram_range=(1, 2)
+        )
+        
+    def fit(self, texts):
+        """Entrena el vectorizador con los textos proporcionados."""
+        self.vectorizer.fit(texts)
+        
+    def encode(self, texts, batch_size=None):
+        """Codifica textos usando TF-IDF."""
+        return self.vectorizer.transform(texts).toarray()
         
     def encode(self, texts, batch_size=8):
         """Codifica textos usando BERT."""
@@ -101,8 +113,8 @@ def extract_features(applications_df, processed_offers, processed_cvs):
         offer_ids: IDs de ofertas correspondientes a cada fila
         cv_ids: IDs de CVs correspondientes a cada fila
     """
-    # Inicializar el codificador BERT
-    bert_encoder = BertEncoder()
+    # Inicializar el codificador de texto (TF-IDF en lugar de BERT)
+    text_encoder = TextEncoder(max_features=1000)
     
     # Preparar datos para vectorización
     offer_texts = []
@@ -137,12 +149,16 @@ def extract_features(applications_df, processed_offers, processed_cvs):
             # Si no hay etiqueta, asumimos que estamos en modo de inferencia
             labels.append(-1)
     
-    # Vectorizar textos con BERT
-    logger.info("Codificando ofertas con BERT...")
-    offer_vectors = bert_encoder.encode(offer_texts)
+    # Vectorizar textos con TF-IDF
+    logger.info("Entrenando vectorizador TF-IDF...")
+    all_texts = offer_texts + cv_texts
+    text_encoder.fit(all_texts)
     
-    logger.info("Codificando CVs con BERT...")
-    cv_vectors = bert_encoder.encode(cv_texts)
+    logger.info("Codificando ofertas con TF-IDF...")
+    offer_vectors = text_encoder.encode(offer_texts)
+    
+    logger.info("Codificando CVs con TF-IDF...")
+    cv_vectors = text_encoder.encode(cv_texts)
     
     # Calcular similitud entre ofertas y CVs
     similarities = []
