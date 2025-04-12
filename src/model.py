@@ -58,26 +58,36 @@ def train_model(X, y, test_size=0.15, val_size=0.15, random_state=42):
         random_state=random_state, stratify=y_temp
     )
     
-    # Configurar modelo XGBoost
+    # Configurar modelo XGBoost con hiperparámetros optimizados
     model = xgb.XGBClassifier(
         objective='binary:logistic',
-        eval_metric='logloss',
+        eval_metric=['logloss', 'auc'],
         use_label_encoder=False,
-        n_estimators=100,
-        max_depth=5,
-        learning_rate=0.1,
+        n_estimators=200,
+        max_depth=6,
+        learning_rate=0.05,
         subsample=0.8,
         colsample_bytree=0.8,
+        min_child_weight=1,
+        gamma=0,
+        reg_alpha=0.1,
+        reg_lambda=1,
+        scale_pos_weight=1,
         random_state=random_state
     )
     
-    # Entrenar modelo
+    # Entrenar modelo con early stopping más conservador
     model.fit(
         X_train, y_train,
-        eval_set=[(X_val, y_val)],  # Usamos el conjunto de validación para early stopping
-        early_stopping_rounds=10,
-        verbose=False
+        eval_set=[(X_train, y_train), (X_val, y_val)],
+        eval_metric=['logloss', 'auc'],
+        early_stopping_rounds=20,
+        verbose=True
     )
+    
+    # Registrar el mejor número de iteraciones
+    best_iteration = model.best_iteration
+    logger.info(f"Mejor iteración: {best_iteration}")
     
     # Evaluar modelo en el conjunto de prueba
     y_pred = model.predict(X_test)
