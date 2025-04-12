@@ -9,7 +9,7 @@ from src.model import train_model, evaluate_model, predict
 DATA_DIR = "data"
 APPLICATIONS_PATH = os.path.join(DATA_DIR, "applications.parquet")
 CV_DIR = os.path.join(DATA_DIR, "cvs")
-JOB_OFFERS_DIR = os.path.join(DATA_DIR, "job_offers")
+JOB_OFFERS_DIR = os.path.join(DATA_DIR, "jobs")
 OUTPUT_DIR = os.path.join(DATA_DIR, "results")
 MODEL_PATH = os.path.join(OUTPUT_DIR, "cv_classifier_model.pkl")
 
