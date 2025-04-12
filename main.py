@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+import xgboost as xgb
 from src.data_loader import load_applications, load_job_offers, load_cvs
 from src.preprocessing import preprocess_documents
 from src.feature_engineering import extract_features
@@ -34,8 +35,27 @@ def main():
         processed_cvs
     )
     
+    # Configurar modelo XGBoost directamente
+    print("Configurando modelo XGBoost...")
+    model = xgb.XGBClassifier(
+        objective='binary:logistic',
+        eval_metric=['logloss', 'auc'],
+        use_label_encoder=False,
+        n_estimators=200,
+        max_depth=6,
+        learning_rate=0.05,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        min_child_weight=1,
+        gamma=0,
+        reg_alpha=0.1,
+        reg_lambda=1,
+        scale_pos_weight=1,
+        random_state=42
+    )
+    
     print("Entrenando modelo...")
-    model, metrics, data_splits = train_model(X, y)
+    _, metrics, data_splits = train_model(X, y)
     
     print("Evaluando modelo...")
     evaluate_model(model, X, y, offer_ids, cv_ids, data_splits=data_splits)
