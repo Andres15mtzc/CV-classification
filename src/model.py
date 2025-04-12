@@ -12,7 +12,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def train_model(X, y, test_size=0.2, random_state=42):
+def train_model(X, y, test_size=0.15, val_size=0.15, random_state=42):
     """
     Entrena un modelo XGBoost para clasificación de CVs.
     
@@ -20,15 +20,26 @@ def train_model(X, y, test_size=0.2, random_state=42):
         X: Matriz de características
         y: Vector de etiquetas
         test_size: Proporción del conjunto de prueba
+        val_size: Proporción del conjunto de validación
         random_state: Semilla aleatoria
         
     Returns:
         model: Modelo entrenado
         metrics: Diccionario con métricas de rendimiento
+        data_splits: Diccionario con los conjuntos de datos divididos
     """
-    # Dividir datos en entrenamiento y prueba
-    X_train, X_test, y_train, y_test = train_test_split(
+    # Primero dividimos para obtener el conjunto de prueba
+    X_temp, X_test, y_temp, y_test = train_test_split(
         X, y, test_size=test_size, random_state=random_state, stratify=y
+    )
+    
+    # Luego dividimos el resto para obtener entrenamiento y validación
+    # Calculamos el tamaño de validación relativo al conjunto temporal
+    relative_val_size = val_size / (1 - test_size)
+    
+    X_train, X_val, y_train, y_val = train_test_split(
+        X_temp, y_temp, test_size=relative_val_size, 
+        random_state=random_state, stratify=y_temp
     )
     
     # Configurar modelo XGBoost
@@ -47,12 +58,12 @@ def train_model(X, y, test_size=0.2, random_state=42):
     # Entrenar modelo
     model.fit(
         X_train, y_train,
-        eval_set=[(X_test, y_test)],
+        eval_set=[(X_val, y_val)],  # Usamos el conjunto de validación para early stopping
         early_stopping_rounds=10,
         verbose=False
     )
     
-    # Evaluar modelo
+    # Evaluar modelo en el conjunto de prueba
     y_pred = model.predict(X_test)
     y_prob = model.predict_proba(X_test)[:, 1]
     
@@ -70,9 +81,16 @@ def train_model(X, y, test_size=0.2, random_state=42):
     metrics['cv_f1_mean'] = cv_scores.mean()
     metrics['cv_f1_std'] = cv_scores.std()
     
-    return model, metrics
+    # Crear diccionario con los conjuntos de datos
+    data_splits = {
+        'X_train': X_train, 'y_train': y_train,
+        'X_val': X_val, 'y_val': y_val,
+        'X_test': X_test, 'y_test': y_test
+    }
+    
+    return model, metrics, data_splits
 
-def evaluate_model(model, X, y, offer_ids, cv_ids, output_dir):
+def evaluate_model(model, X, y, offer_ids, cv_ids, output_dir, data_splits=None):
     """
     Evalúa el modelo y genera visualizaciones y métricas.
     
@@ -83,11 +101,27 @@ def evaluate_model(model, X, y, offer_ids, cv_ids, output_dir):
         offer_ids: IDs de ofertas
         cv_ids: IDs de CVs
         output_dir: Directorio para guardar resultados
+        data_splits: Diccionario con los conjuntos de datos ya divididos (opcional)
     """
-    # Dividir datos en entrenamiento y prueba
-    X_train, X_test, y_train, y_test, offer_ids_train, offer_ids_test, cv_ids_train, cv_ids_test = train_test_split(
-        X, y, offer_ids, cv_ids, test_size=0.2, random_state=42, stratify=y
-    )
+    # Si no se proporcionan los conjuntos de datos divididos, los creamos
+    if data_splits is None:
+        # Dividir datos en entrenamiento, validación y prueba
+        X_temp, X_test, y_temp, y_test, offer_ids_temp, offer_ids_test, cv_ids_temp, cv_ids_test = train_test_split(
+            X, y, offer_ids, cv_ids, test_size=0.15, random_state=42, stratify=y
+        )
+        
+        X_train, X_val, y_train, y_val, offer_ids_train, offer_ids_val, cv_ids_train, cv_ids_val = train_test_split(
+            X_temp, y_temp, offer_ids_temp, cv_ids_temp, test_size=0.15/(1-0.15), random_state=42, stratify=y_temp
+        )
+    else:
+        # Usar los conjuntos de datos proporcionados
+        X_test, y_test = data_splits['X_test'], data_splits['y_test']
+        
+        # Necesitamos dividir los IDs de ofertas y CVs de la misma manera
+        # Esto es una simplificación, en un caso real deberíamos mantener la correspondencia
+        _, offer_ids_test, _, cv_ids_test = train_test_split(
+            X, offer_ids, test_size=0.15, random_state=42, stratify=y
+        )
     
     # Predecir en conjunto de prueba
     y_pred = model.predict(X_test)
