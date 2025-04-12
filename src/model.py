@@ -12,6 +12,8 @@ import logging
 
 # Definición de rutas hardcodeadas
 DATA_DIR = "data"
+CV_DIR = os.path.join(DATA_DIR, "cvs")
+JOB_OFFERS_DIR = os.path.join(DATA_DIR, "jobs")
 OUTPUT_DIR = os.path.join(DATA_DIR, "results")
 MODEL_PATH = os.path.join(OUTPUT_DIR, "cv_classifier_model.pkl")
 RESULTS_PATH = os.path.join(OUTPUT_DIR, "prediction_results.csv")
@@ -26,13 +28,14 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 logger = logging.getLogger(__name__)
 
-def train_model(X, y, test_size=0.15, val_size=0.15, random_state=42):
+def train_model(X, y, model=None, test_size=0.15, val_size=0.15, random_state=42):
     """
     Entrena un modelo XGBoost para clasificación de CVs.
     
     Args:
         X: Matriz de características
         y: Vector de etiquetas
+        model: Modelo XGBoost preconfigurado (opcional)
         test_size: Proporción del conjunto de prueba
         val_size: Proporción del conjunto de validación
         random_state: Semilla aleatoria
@@ -56,23 +59,24 @@ def train_model(X, y, test_size=0.15, val_size=0.15, random_state=42):
         random_state=random_state, stratify=y_temp
     )
     
-    # Configurar modelo XGBoost con hiperparámetros optimizados
-    model = xgb.XGBClassifier(
-        objective='binary:logistic',
-        eval_metric=['logloss', 'auc'],
-        use_label_encoder=False,
-        n_estimators=200,
-        max_depth=6,
-        learning_rate=0.05,
-        subsample=0.8,
-        colsample_bytree=0.8,
-        min_child_weight=1,
-        gamma=0,
-        reg_alpha=0.1,
-        reg_lambda=1,
-        scale_pos_weight=1,
-        random_state=random_state
-    )
+    # Configurar modelo XGBoost si no se proporciona uno
+    if model is None:
+        model = xgb.XGBClassifier(
+            objective='binary:logistic',
+            eval_metric=['logloss', 'auc'],
+            use_label_encoder=False,
+            n_estimators=200,
+            max_depth=6,
+            learning_rate=0.05,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            min_child_weight=1,
+            gamma=0,
+            reg_alpha=0.1,
+            reg_lambda=1,
+            scale_pos_weight=1,
+            random_state=random_state
+        )
     
     # Entrenar modelo con early stopping más conservador
     model.fit(

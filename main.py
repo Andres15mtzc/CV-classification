@@ -55,7 +55,7 @@ def main():
     )
     
     print("Entrenando modelo...")
-    _, metrics, data_splits = train_model(X, y)
+    model, metrics, data_splits = train_model(X, y, model=model)
     
     print("Evaluando modelo...")
     evaluate_model(model, X, y, offer_ids, cv_ids, data_splits=data_splits)
