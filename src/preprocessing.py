@@ -104,8 +104,9 @@ def tokenize_text(text, language='es'):
     except:
         stop_words = set()
     
-    # Tokenizar
-    tokens = word_tokenize(text)
+    # Tokenizar usando una implementación más simple para evitar problemas con punkt_tab
+    # Dividir por espacios y eliminar puntuación
+    tokens = re.findall(r'\b\w+\b', text.lower())
     
     # Eliminar stopwords
     tokens = [token for token in tokens if token.lower() not in stop_words and len(token) > 2]

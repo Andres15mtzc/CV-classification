@@ -15,6 +15,8 @@ def main():
     logger.info("Descargando recursos de NLTK...")
     nltk.download('punkt')
     nltk.download('stopwords')
+    nltk.download('wordnet')
+    nltk.download('averaged_perceptron_tagger')
     
     logger.info("Instalando modelos de spaCy...")
     os.system("python -m spacy download es_core_news_sm")
@@ -27,6 +29,8 @@ def main():
         logger.info("Recursos de NLTK verificados correctamente.")
     except LookupError as e:
         logger.error(f"Error al verificar recursos de NLTK: {e}")
+        logger.info("Intentando descargar recursos adicionales...")
+        nltk.download('all')  # Descarga todos los recursos de NLTK como último recurso
         sys.exit(1)
     
     logger.info("Todos los recursos han sido descargados correctamente.")
