@@ -24,6 +24,7 @@ build/
 
 # Directorios de resultados
 results/
+data/
 
 # Archivos de configuración local
 .env
