@@ -3,6 +3,7 @@ import pandas as pd
 import xgboost as xgb
 import argparse
 import pickle
+import sys
 from src.data_loader import load_applications, load_job_offers, load_cvs
 from src.preprocessing import preprocess_documents
 from src.feature_engineering import extract_features
@@ -16,10 +17,11 @@ APPLICATIONS_PATH = os.path.join(DATA_DIR, "applications.parquet")
 CV_DIR = os.path.join(DATA_DIR, "cvs")
 JOB_OFFERS_DIR = os.path.join(DATA_DIR, "jobs")
 OUTPUT_DIR = os.path.join(DATA_DIR, "results")
-MODEL_PATH = os.path.join(MODELS_DIR, f"cv_classifier_model_{datetime.datetime.now()}_.pkl")
+MODEL_PATH = os.path.join(MODELS_DIR, f"cv_classifier_model_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.pkl")
 
-# Asegurar que el directorio de resultados exista
+# Asegurar que los directorios necesarios existan
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+os.makedirs(MODELS_DIR, exist_ok=True)
 
 def load_and_preprocess_data():
     """Carga y preprocesa los datos necesarios para el modelo."""
@@ -200,9 +202,26 @@ def main():
     inference_parser.add_argument('--cv-path', type=str, help='Ruta al archivo CV para inferencia')
     inference_parser.add_argument('--offer-id', type=str, help='ID de la oferta de trabajo para inferencia')
     
+    # Subparser para inicializar NLTK
+    init_parser = subparsers.add_parser('init', help='Inicializar recursos NLTK')
+    
     args = parser.parse_args()
 
+    if args.command is None:
+        parser.print_help()
+        return
+
     print(f"Comando ejecutado: {args.command}")
+    
+    # Si el comando es init, ejecutar la inicialización de NLTK
+    if args.command == 'init':
+        try:
+            from init_nltk import download_nltk_resources
+            download_nltk_resources()
+            return
+        except ImportError:
+            print("Error: No se pudo importar el módulo init_nltk.")
+            return
     
     if args.command == 'train':
         train(args)
