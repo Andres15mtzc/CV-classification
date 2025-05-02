@@ -103,8 +103,13 @@ def test(args):
 def inference(args):
     """Función para realizar inferencias con el modelo."""
     # Verificar si se proporcionó un CV y una oferta de trabajo
-    if args.cv_id is None or args.offer_id is None:
-        print("Error: Debe proporcionar un ID de CV y un ID de oferta de trabajo para la inferencia.")
+    if args.cv_path is None or args.offer_id is None:
+        print("Error: Debe proporcionar una ruta al archivo CV y un ID de oferta de trabajo para la inferencia.")
+        return
+    
+    # Verificar si el archivo CV existe
+    if not os.path.exists(args.cv_path):
+        print(f"Error: El archivo CV en la ruta {args.cv_path} no existe.")
         return
     
     # Cargar modelo si existe
@@ -119,11 +124,33 @@ def inference(args):
     # Cargar y preprocesar solo los datos necesarios
     print("Cargando datos para inferencia...")
     offers_dict = load_job_offers(JOB_OFFERS_DIR)
-    cv_dict = load_cvs(CV_DIR)
     
-    if args.cv_id not in cv_dict:
-        print(f"Error: CV con ID {args.cv_id} no encontrado.")
+    # Determinar el tipo de archivo y extraer texto
+    _, file_extension = os.path.splitext(args.cv_path)
+    file_extension = file_extension.lower()
+    
+    from src.data_loader import extract_text_from_pdf, extract_text_from_docx, extract_text_from_html, extract_text_from_image
+    
+    print(f"Procesando archivo CV: {args.cv_path}")
+    cv_text = None
+    if file_extension == '.pdf':
+        cv_text = extract_text_from_pdf(args.cv_path)
+    elif file_extension in ['.doc', '.docx']:
+        cv_text = extract_text_from_docx(args.cv_path)
+    elif file_extension in ['.html', '.htm']:
+        cv_text = extract_text_from_html(args.cv_path)
+    elif file_extension in ['.jpg', '.jpeg', '.png', '.tiff', '.bmp']:
+        cv_text = extract_text_from_image(args.cv_path)
+    else:
+        print(f"Error: Formato de archivo no soportado: {file_extension}")
         return
+    
+    if not cv_text:
+        print("Error: No se pudo extraer texto del archivo CV.")
+        return
+    
+    # Generar un ID temporal para el CV
+    cv_id = f"temp_cv_{os.path.basename(args.cv_path)}"
     
     if args.offer_id not in offers_dict:
         print(f"Error: Oferta de trabajo con ID {args.offer_id} no encontrada.")
@@ -131,11 +158,11 @@ def inference(args):
     
     print("Preprocesando documentos...")
     processed_offers = preprocess_documents({args.offer_id: offers_dict[args.offer_id]})
-    processed_cvs = preprocess_documents({args.cv_id: cv_dict[args.cv_id]})
+    processed_cvs = preprocess_documents({cv_id: cv_text})
     
     # Crear un DataFrame de aplicaciones simulado para la inferencia
     applications_df = pd.DataFrame({
-        'cv_id': [args.cv_id],
+        'cv_id': [cv_id],
         'offer_id': [args.offer_id],
         'match': [0]  # Valor ficticio, no se usa para inferencia
     })
@@ -170,7 +197,7 @@ def main():
     
     # Subparser para inferencia
     inference_parser = subparsers.add_parser('inference', help='Realizar inferencia con el modelo')
-    inference_parser.add_argument('--cv-id', type=str, help='ID del CV para inferencia')
+    inference_parser.add_argument('--cv-path', type=str, help='Ruta al archivo CV para inferencia')
     inference_parser.add_argument('--offer-id', type=str, help='ID de la oferta de trabajo para inferencia')
     
     args = parser.parse_args()
