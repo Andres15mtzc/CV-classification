@@ -25,9 +25,11 @@ build/
 # Directorios de resultados
 results/
 data/
+models/
 
 # Archivos de configuración local
 .env
+config.ini
 
 # Archivos de sistema
 .DS_Store
@@ -43,3 +45,13 @@ Thumbs.db
 *.parquet
 *.csv
 *.pkl
+*.model
+
+# Archivos temporales
+temp/
+tmp/
+*.tmp
+*.bak
+
+# Archivos de NLTK
+nltk_data/

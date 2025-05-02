@@ -272,6 +272,9 @@ def main():
     # Subparser para inicializar NLTK
     init_parser = subparsers.add_parser('init', help='Inicializar recursos NLTK')
     
+    # Subparser para la interfaz gráfica
+    gui_parser = subparsers.add_parser('gui', help='Iniciar interfaz gráfica')
+    
     args = parser.parse_args()
 
     if args.command is None:
@@ -308,6 +311,13 @@ def main():
         test(args)
     elif args.command == 'inference':
         inference(args)
+    elif args.command == 'gui':
+        try:
+            from src.gui import main as gui_main
+            gui_main()
+        except ImportError as e:
+            print(f"Error al cargar la interfaz gráfica: {e}")
+            print("Asegúrese de tener instaladas las dependencias necesarias (tkinter)")
     else:
         parser.print_help()
 
