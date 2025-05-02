@@ -220,7 +220,8 @@ class CVMatcherApp:
             
             logger.info(f"Cargadas {len(offers_dict)} ofertas de trabajo")
         except Exception as e:
-            self.root.after(0, lambda: messagebox.showerror("Error", f"Error al cargar ofertas: {str(e)}"))
+            error_msg = f"Error al cargar ofertas: {str(e)}"
+            self.root.after(0, lambda error=error_msg: messagebox.showerror("Error", error))
             logger.error(f"Error al cargar ofertas: {str(e)}")
     
     def _clear_treeview(self):
@@ -295,7 +296,8 @@ class CVMatcherApp:
             # Actualizar la interfaz en el hilo principal
             self.root.after(0, lambda: self._update_offer_details(offer_text))
         except Exception as e:
-            self.root.after(0, lambda: messagebox.showerror("Error", f"Error al cargar detalles de la oferta: {str(e)}"))
+            error_msg = f"Error al cargar detalles de la oferta: {str(e)}"
+            self.root.after(0, lambda error=error_msg: messagebox.showerror("Error", error))
     
     def _update_offer_details(self, offer_text):
         """Actualiza el texto de detalles de la oferta en el hilo principal"""
@@ -424,7 +426,8 @@ class CVMatcherApp:
                 self.root.after(0, lambda: self.update_results(probability, is_match))
                 
             except Exception as e:
-                self.root.after(0, lambda: messagebox.showerror("Error", f"Error en la inferencia: {str(e)}"))
+                error_msg = f"Error en la inferencia: {str(e)}"
+                self.root.after(0, lambda error=error_msg: messagebox.showerror("Error", error))
                 logger.error(f"Error en la inferencia: {str(e)}")
         
         # Mostrar mensaje de procesamiento
