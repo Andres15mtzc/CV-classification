@@ -10,7 +10,6 @@ from src.preprocessing import preprocess_documents
 from src.feature_engineering import extract_features
 from src.model import train_model, evaluate_model, predict
 import datetime
-from init_nltk import get_nltk_data_dir
 
 # Definición de rutas hardcodeadas
 DATA_DIR = "data"
@@ -26,10 +25,7 @@ NLTK_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'nltk_d
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(MODELS_DIR, exist_ok=True)
 
-# Configurar NLTK para usar el directorio local si existe
-NLTK_DATA_DIR = get_nltk_data_dir()
-if os.path.exists(NLTK_DATA_DIR):
-    nltk.data.path.insert(0, NLTK_DATA_DIR)
+# NLTK usará automáticamente las rutas del entorno de Python
 
 def load_and_preprocess_data():
     """Carga y preprocesa los datos necesarios para el modelo."""
@@ -235,7 +231,7 @@ def main():
     try:
         nltk.data.find('tokenizers/punkt')
     except LookupError:
-        print("Los recursos de NLTK no están disponibles. Ejecutando inicialización automática...")
+        print("Los recursos de NLTK no están disponibles en el entorno global. Ejecutando inicialización automática...")
         try:
             from init_nltk import download_nltk_resources
             download_nltk_resources()
