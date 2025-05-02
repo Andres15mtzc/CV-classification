@@ -7,14 +7,16 @@ from src.data_loader import load_applications, load_job_offers, load_cvs
 from src.preprocessing import preprocess_documents
 from src.feature_engineering import extract_features
 from src.model import train_model, evaluate_model, predict
+import datetime
 
 # Definición de rutas hardcodeadas
 DATA_DIR = "data"
+MODELS_DIR = "models"
 APPLICATIONS_PATH = os.path.join(DATA_DIR, "applications.parquet")
 CV_DIR = os.path.join(DATA_DIR, "cvs")
 JOB_OFFERS_DIR = os.path.join(DATA_DIR, "jobs")
 OUTPUT_DIR = os.path.join(DATA_DIR, "results")
-MODEL_PATH = os.path.join(OUTPUT_DIR, "cv_classifier_model.pkl")
+MODEL_PATH = os.path.join(MODELS_DIR, f"cv_classifier_model_{datetime.datetime.now()}_.pkl")
 
 # Asegurar que el directorio de resultados exista
 os.makedirs(OUTPUT_DIR, exist_ok=True)
