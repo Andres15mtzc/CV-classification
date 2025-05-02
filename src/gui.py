@@ -57,14 +57,12 @@ class CVMatcherApp:
         offer_frame = ttk.LabelFrame(self.inference_tab, text="Seleccionar Oferta de Trabajo", padding="10")
         offer_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
         
-        # Crear Treeview para mostrar ofertas
-        self.offer_tree = ttk.Treeview(offer_frame, columns=("ID", "Título", "Empresa"), show="headings")
+        # Crear Treeview para mostrar ofertas (sin columna Empresa)
+        self.offer_tree = ttk.Treeview(offer_frame, columns=("ID", "Título"), show="headings")
         self.offer_tree.heading("ID", text="ID")
         self.offer_tree.heading("Título", text="Título")
-        self.offer_tree.heading("Empresa", text="Empresa")
         self.offer_tree.column("ID", width=100)
-        self.offer_tree.column("Título", width=300)
-        self.offer_tree.column("Empresa", width=200)
+        self.offer_tree.column("Título", width=500)  # Más ancho para el título
         self.offer_tree.pack(fill=tk.BOTH, expand=True, side=tk.LEFT)
         
         # Añadir scrollbar
@@ -196,14 +194,22 @@ class CVMatcherApp:
             from src.data_loader import load_job_offers
             offers_dict = load_job_offers(self.job_offers_dir)
             
-            # Extraer información básica de cada oferta
-            for offer_id, offer_text in offers_dict.items():
-                # Extraer título y empresa (simulado)
-                title = self.extract_title(offer_text)
-                company = self.extract_company(offer_text)
+            # Extraer información básica de cada oferta (procesamiento por lotes)
+            batch_size = 100  # Procesar ofertas en lotes para mejorar rendimiento
+            offer_items = list(offers_dict.items())
+            
+            for i in range(0, len(offer_items), batch_size):
+                batch = offer_items[i:i+batch_size]
                 
-                # Añadir a treeview
-                self.offer_tree.insert("", tk.END, values=(offer_id, title, company))
+                for offer_id, offer_text in batch:
+                    # Extraer solo el título (sin empresa)
+                    title = self.extract_title(offer_text)
+                    
+                    # Añadir a treeview
+                    self.offer_tree.insert("", tk.END, values=(offer_id, title))
+                
+                # Actualizar la interfaz después de cada lote
+                self.root.update_idletasks()
             
             logger.info(f"Cargadas {len(offers_dict)} ofertas de trabajo")
         except Exception as e:
@@ -211,18 +217,43 @@ class CVMatcherApp:
             logger.error(f"Error al cargar ofertas: {str(e)}")
     
     def extract_title(self, text):
-        # Extraer título de la oferta (simulado)
+        """Extrae un título más significativo de la oferta de trabajo"""
         if not text:
             return "Sin título"
         
-        # Tomar las primeras palabras como título
+        # Buscar patrones comunes de títulos de trabajo
+        title_patterns = [
+            r'(?i)puesto:?\s*([^\n\.]{5,50})',
+            r'(?i)posición:?\s*([^\n\.]{5,50})',
+            r'(?i)vacante:?\s*([^\n\.]{5,50})',
+            r'(?i)título:?\s*([^\n\.]{5,50})',
+            r'(?i)oferta:?\s*([^\n\.]{5,50})',
+            r'(?i)empleo:?\s*([^\n\.]{5,50})',
+            r'(?i)trabajo:?\s*([^\n\.]{5,50})'
+        ]
+        
+        import re
+        for pattern in title_patterns:
+            match = re.search(pattern, text)
+            if match:
+                return match.group(1).strip()
+        
+        # Si no se encuentra un patrón, usar las primeras líneas no vacías
+        lines = [line.strip() for line in text.split('\n') if line.strip()]
+        if lines:
+            # Usar la primera línea que tenga entre 5 y 50 caracteres
+            for line in lines:
+                if 5 <= len(line) <= 50:
+                    return line
+            
+            # Si no hay líneas adecuadas, usar la primera línea
+            title = lines[0]
+            return title[:50] + "..." if len(title) > 50 else title
+        
+        # Si todo falla, usar las primeras palabras
         words = text.split()
-        title = " ".join(words[:min(5, len(words))])
+        title = " ".join(words[:min(7, len(words))])
         return title[:50] + "..." if len(title) > 50 else title
-    
-    def extract_company(self, text):
-        # Extraer empresa de la oferta (simulado)
-        return "Empresa no especificada"
     
     def on_offer_selected(self, event):
         selected_items = self.offer_tree.selection()
@@ -230,22 +261,30 @@ class CVMatcherApp:
             item = selected_items[0]
             self.selected_offer_id = self.offer_tree.item(item, "values")[0]
             
-            # Cargar detalles de la oferta
-            try:
-                from src.data_loader import load_job_offers
-                offers_dict = load_job_offers(self.job_offers_dir)
-                offer_text = offers_dict.get(self.selected_offer_id, "No se encontró la oferta")
-                
-                # Mostrar detalles
-                self.offer_details_text.config(state=tk.NORMAL)
-                self.offer_details_text.delete(1.0, tk.END)
-                self.offer_details_text.insert(tk.END, offer_text[:500] + "..." if len(offer_text) > 500 else offer_text)
-                self.offer_details_text.config(state=tk.DISABLED)
-                
-                # Habilitar botón de inferencia si hay un CV seleccionado
-                self.update_run_button_state()
-            except Exception as e:
-                messagebox.showerror("Error", f"Error al cargar detalles de la oferta: {str(e)}")
+            # Usar un hilo para cargar los detalles de la oferta
+            threading.Thread(target=self._load_offer_details, args=(self.selected_offer_id,)).start()
+            
+            # Habilitar botón de inferencia si hay un CV seleccionado
+            self.update_run_button_state()
+    
+    def _load_offer_details(self, offer_id):
+        """Carga los detalles de la oferta en un hilo separado para evitar bloqueos"""
+        try:
+            from src.data_loader import load_job_offers
+            offers_dict = load_job_offers(self.job_offers_dir)
+            offer_text = offers_dict.get(offer_id, "No se encontró la oferta")
+            
+            # Actualizar la interfaz en el hilo principal
+            self.root.after(0, lambda: self._update_offer_details(offer_text))
+        except Exception as e:
+            self.root.after(0, lambda: messagebox.showerror("Error", f"Error al cargar detalles de la oferta: {str(e)}"))
+    
+    def _update_offer_details(self, offer_text):
+        """Actualiza el texto de detalles de la oferta en el hilo principal"""
+        self.offer_details_text.config(state=tk.NORMAL)
+        self.offer_details_text.delete(1.0, tk.END)
+        self.offer_details_text.insert(tk.END, offer_text[:500] + "..." if len(offer_text) > 500 else offer_text)
+        self.offer_details_text.config(state=tk.DISABLED)
     
     def select_cv(self):
         filetypes = [
