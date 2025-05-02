@@ -180,13 +180,22 @@ class CVMatcherApp:
         threading.Thread(target=run_init).start()
     
     def load_job_offers(self):
-        # Limpiar treeview
+        """Carga las ofertas de trabajo en un hilo separado para evitar bloqueos"""
+        # Mostrar mensaje de carga
         for item in self.offer_tree.get_children():
             self.offer_tree.delete(item)
         
+        self.offer_tree.insert("", tk.END, values=("", "Cargando ofertas, por favor espere..."))
+        
+        # Iniciar carga en un hilo separado
+        threading.Thread(target=self._load_job_offers_thread).start()
+    
+    def _load_job_offers_thread(self):
+        """Proceso de carga de ofertas en un hilo separado"""
         # Verificar si el directorio existe
         if not os.path.exists(self.job_offers_dir):
-            messagebox.showwarning("Advertencia", f"El directorio de ofertas {self.job_offers_dir} no existe")
+            self.root.after(0, lambda: messagebox.showwarning("Advertencia", 
+                                                             f"El directorio de ofertas {self.job_offers_dir} no existe"))
             return
         
         # Cargar ofertas
@@ -194,27 +203,36 @@ class CVMatcherApp:
             from src.data_loader import load_job_offers
             offers_dict = load_job_offers(self.job_offers_dir)
             
-            # Extraer información básica de cada oferta (procesamiento por lotes)
-            batch_size = 100  # Procesar ofertas en lotes para mejorar rendimiento
+            # Limpiar el treeview en el hilo principal
+            self.root.after(0, lambda: self._clear_treeview())
+            
+            # Procesar ofertas en lotes para mejorar rendimiento
+            batch_size = 100
             offer_items = list(offers_dict.items())
             
             for i in range(0, len(offer_items), batch_size):
                 batch = offer_items[i:i+batch_size]
+                processed_batch = [(offer_id, self.extract_title(offer_text)) 
+                                  for offer_id, offer_text in batch]
                 
-                for offer_id, offer_text in batch:
-                    # Extraer solo el título (sin empresa)
-                    title = self.extract_title(offer_text)
-                    
-                    # Añadir a treeview
-                    self.offer_tree.insert("", tk.END, values=(offer_id, title))
-                
-                # Actualizar la interfaz después de cada lote
-                self.root.update_idletasks()
+                # Actualizar treeview en el hilo principal
+                self.root.after(0, lambda b=processed_batch: self._add_offers_to_treeview(b))
             
             logger.info(f"Cargadas {len(offers_dict)} ofertas de trabajo")
         except Exception as e:
-            messagebox.showerror("Error", f"Error al cargar ofertas: {str(e)}")
+            self.root.after(0, lambda: messagebox.showerror("Error", f"Error al cargar ofertas: {str(e)}"))
             logger.error(f"Error al cargar ofertas: {str(e)}")
+    
+    def _clear_treeview(self):
+        """Limpia el treeview en el hilo principal"""
+        for item in self.offer_tree.get_children():
+            self.offer_tree.delete(item)
+    
+    def _add_offers_to_treeview(self, offers):
+        """Añade un lote de ofertas al treeview en el hilo principal"""
+        for offer_id, title in offers:
+            self.offer_tree.insert("", tk.END, values=(offer_id, title))
+        self.root.update_idletasks()  # Actualizar la interfaz después de cada lote
     
     def extract_title(self, text):
         """Extrae un título más significativo de la oferta de trabajo"""
