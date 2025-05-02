@@ -4,6 +4,7 @@ import xgboost as xgb
 import argparse
 import pickle
 import sys
+import nltk
 from src.data_loader import load_applications, load_job_offers, load_cvs
 from src.preprocessing import preprocess_documents
 from src.feature_engineering import extract_features
@@ -18,10 +19,15 @@ CV_DIR = os.path.join(DATA_DIR, "cvs")
 JOB_OFFERS_DIR = os.path.join(DATA_DIR, "jobs")
 OUTPUT_DIR = os.path.join(DATA_DIR, "results")
 MODEL_PATH = os.path.join(MODELS_DIR, f"cv_classifier_model_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.pkl")
+NLTK_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'nltk_data')
 
 # Asegurar que los directorios necesarios existan
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(MODELS_DIR, exist_ok=True)
+
+# Configurar NLTK para usar el directorio local si existe
+if os.path.exists(NLTK_DATA_DIR):
+    nltk.data.path.insert(0, NLTK_DATA_DIR)
 
 def load_and_preprocess_data():
     """Carga y preprocesa los datos necesarios para el modelo."""
