@@ -5,6 +5,7 @@ import argparse
 import pickle
 import sys
 import nltk
+import numpy as np
 from src.data_loader import load_applications, load_job_offers, load_cvs
 from src.preprocessing import preprocess_documents
 from src.feature_engineering import extract_features
