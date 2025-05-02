@@ -201,6 +201,8 @@ def main():
     inference_parser.add_argument('--offer-id', type=str, help='ID de la oferta de trabajo para inferencia')
     
     args = parser.parse_args()
+
+    print(f"Comando ejecutado: {args.command}")
     
     if args.command == 'train':
         train(args)
