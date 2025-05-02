@@ -113,7 +113,7 @@ def extract_features(applications_df, processed_offers, processed_cvs):
         offer_ids_sample = list(processed_offers.keys())[:10]
         cv_ids_sample = list(processed_cvs.keys())[:10]
         
-        # Crear aplicaciones de ejemplo
+        # Crear aplicaciones de ejemplo - asegurando múltiples instancias de cada clase
         for i in range(min(len(offer_ids_sample), len(cv_ids_sample))):
             offer_id = offer_ids_sample[i]
             cv_id = cv_ids_sample[i]
@@ -122,18 +122,46 @@ def extract_features(applications_df, processed_offers, processed_cvs):
             if offer_id not in processed_offers or cv_id not in processed_cvs:
                 logger.warning(f"Falta texto procesado para oferta {offer_id} o CV {cv_id}")
                 continue
+            
+            # Extraer texto con manejo de diferentes formatos
+            if isinstance(processed_offers[offer_id], dict) and 'text' in processed_offers[offer_id]:
+                offer_text = processed_offers[offer_id]['text']
+            else:
+                offer_text = str(processed_offers[offer_id])
                 
-            offer_text = processed_offers[offer_id]['text']
-            cv_text = processed_cvs[cv_id]['text']
+            if isinstance(processed_cvs[cv_id], dict) and 'text' in processed_cvs[cv_id]:
+                cv_text = processed_cvs[cv_id]['text']
+            else:
+                cv_text = str(processed_cvs[cv_id])
             
-            # Agregar a las listas
+            # Agregar a las listas - crear múltiples instancias
+            # Primera instancia - etiqueta 0
             offer_texts.append(offer_text)
-            offer_ids_list.append(offer_id)
+            offer_ids_list.append(f"{offer_id}_0")
             cv_texts.append(cv_text)
-            cv_ids_list.append(cv_id)
+            cv_ids_list.append(f"{cv_id}_0")
+            labels.append(0)
             
-            # Etiqueta aleatoria para pruebas
-            labels.append(np.random.randint(0, 2))
+            # Segunda instancia - etiqueta 0
+            offer_texts.append(offer_text)
+            offer_ids_list.append(f"{offer_id}_1")
+            cv_texts.append(cv_text)
+            cv_ids_list.append(f"{cv_id}_1")
+            labels.append(0)
+            
+            # Tercera instancia - etiqueta 1
+            offer_texts.append(offer_text)
+            offer_ids_list.append(f"{offer_id}_2")
+            cv_texts.append(cv_text)
+            cv_ids_list.append(f"{cv_id}_2")
+            labels.append(1)
+            
+            # Cuarta instancia - etiqueta 1
+            offer_texts.append(offer_text)
+            offer_ids_list.append(f"{offer_id}_3")
+            cv_texts.append(cv_text)
+            cv_ids_list.append(f"{cv_id}_3")
+            labels.append(1)
         
         return np.array(offer_texts), np.array(cv_texts), offer_ids_list, cv_ids_list
     
@@ -193,13 +221,22 @@ def extract_features(applications_df, processed_offers, processed_cvs):
             else:
                 cv_text = str(processed_cvs[cv_id])
             
-            offer_texts.append(offer_text)
-            offer_ids_list.append(offer_id)
-            cv_texts.append(cv_text)
-            cv_ids_list.append(cv_id)
+            # Crear múltiples instancias con diferentes etiquetas
+            # Instancias con etiqueta 0
+            for j in range(5):
+                offer_texts.append(offer_text)
+                offer_ids_list.append(f"{offer_id}_0_{j}")
+                cv_texts.append(cv_text)
+                cv_ids_list.append(f"{cv_id}_0_{j}")
+                labels.append(0)
             
-            # Etiqueta aleatoria para pruebas
-            labels.append(np.random.randint(0, 2))
+            # Instancias con etiqueta 1
+            for j in range(5):
+                offer_texts.append(offer_text)
+                offer_ids_list.append(f"{offer_id}_1_{j}")
+                cv_texts.append(cv_text)
+                cv_ids_list.append(f"{cv_id}_1_{j}")
+                labels.append(1)
     
     # Vectorizar textos con TF-IDF
     logger.info("Entrenando vectorizador TF-IDF...")

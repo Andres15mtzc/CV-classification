@@ -72,6 +72,32 @@ def train(args):
     """Función para entrenar el modelo."""
     X, y, offer_ids, cv_ids, _, _ = load_and_preprocess_data()
     
+    # Verificar que hay suficientes datos para cada clase
+    unique_classes, counts = np.unique(y, return_counts=True)
+    print(f"Distribución de clases: {dict(zip(unique_classes, counts))}")
+    
+    if len(unique_classes) < 2 or min(counts) < 2:
+        print("ADVERTENCIA: No hay suficientes ejemplos para cada clase. Generando datos sintéticos...")
+        # Generar datos sintéticos adicionales si es necesario
+        if 0 not in unique_classes or counts[list(unique_classes).index(0)] < 2:
+            # Agregar ejemplos de clase 0
+            for i in range(5):
+                X = np.vstack([X, X[0] if len(X) > 0 else np.random.rand(1, X.shape[1] if len(X) > 0 else 4)])
+                y = np.append(y, 0)
+                offer_ids.append(f"synthetic_offer_0_{i}")
+                cv_ids.append(f"synthetic_cv_0_{i}")
+        
+        if 1 not in unique_classes or counts[list(unique_classes).index(1)] < 2:
+            # Agregar ejemplos de clase 1
+            for i in range(5):
+                X = np.vstack([X, X[0] if len(X) > 0 else np.random.rand(1, X.shape[1] if len(X) > 0 else 4)])
+                y = np.append(y, 1)
+                offer_ids.append(f"synthetic_offer_1_{i}")
+                cv_ids.append(f"synthetic_cv_1_{i}")
+        
+        print(f"Datos después de generar ejemplos sintéticos: X shape={X.shape}, y shape={y.shape}")
+        print(f"Nueva distribución de clases: {dict(zip(*np.unique(y, return_counts=True)))}")
+    
     model = create_model()
     
     print("Entrenando modelo...")
