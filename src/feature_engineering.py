@@ -146,9 +146,17 @@ def extract_features(applications_df, processed_offers, processed_cvs):
         if offer_id not in processed_offers or cv_id not in processed_cvs:
             logger.warning(f"Falta texto procesado para oferta {offer_id} o CV {cv_id}")
             continue
+        
+        # Verificar el tipo de datos y extraer el texto
+        if isinstance(processed_offers[offer_id], dict) and 'text' in processed_offers[offer_id]:
+            offer_text = processed_offers[offer_id]['text']
+        else:
+            offer_text = str(processed_offers[offer_id])
             
-        offer_text = processed_offers[offer_id]['text']
-        cv_text = processed_cvs[cv_id]['text']
+        if isinstance(processed_cvs[cv_id], dict) and 'text' in processed_cvs[cv_id]:
+            cv_text = processed_cvs[cv_id]['text']
+        else:
+            cv_text = str(processed_cvs[cv_id])
         
         # Agregar a las listas
         offer_texts.append(offer_text)
@@ -174,8 +182,16 @@ def extract_features(applications_df, processed_offers, processed_cvs):
             offer_id = offer_ids_sample[i]
             cv_id = cv_ids_sample[i]
             
-            offer_text = processed_offers[offer_id]['text']
-            cv_text = processed_cvs[cv_id]['text']
+            # Verificar el tipo de datos y extraer el texto
+            if isinstance(processed_offers[offer_id], dict) and 'text' in processed_offers[offer_id]:
+                offer_text = processed_offers[offer_id]['text']
+            else:
+                offer_text = str(processed_offers[offer_id])
+                
+            if isinstance(processed_cvs[cv_id], dict) and 'text' in processed_cvs[cv_id]:
+                cv_text = processed_cvs[cv_id]['text']
+            else:
+                cv_text = str(processed_cvs[cv_id])
             
             offer_texts.append(offer_text)
             offer_ids_list.append(offer_id)
@@ -211,9 +227,16 @@ def extract_features(applications_df, processed_offers, processed_cvs):
         offer_id = offer_ids_list[i]
         cv_id = cv_ids_list[i]
         
-        # Obtener idioma
-        offer_lang = processed_offers[offer_id]['language']
-        cv_lang = processed_cvs[cv_id]['language']
+        # Obtener idioma con manejo de diferentes tipos de datos
+        if isinstance(processed_offers[offer_id], dict) and 'language' in processed_offers[offer_id]:
+            offer_lang = processed_offers[offer_id]['language']
+        else:
+            offer_lang = 'es'  # Idioma por defecto
+            
+        if isinstance(processed_cvs[cv_id], dict) and 'language' in processed_cvs[cv_id]:
+            cv_lang = processed_cvs[cv_id]['language']
+        else:
+            cv_lang = 'es'  # Idioma por defecto
         
         # Extraer palabras clave
         offer_kw = extract_keywords(offer_texts[i], offer_lang)

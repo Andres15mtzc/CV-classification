@@ -126,27 +126,40 @@ def preprocess_documents(documents_dict):
     processed_docs = {}
     
     for doc_id, text in documents_dict.items():
-        if not text:
-            processed_docs[doc_id] = ""
-            continue
+        try:
+            if not text:
+                processed_docs[doc_id] = {
+                    'text': "",
+                    'language': 'es',
+                    'tokens': []
+                }
+                continue
+                
+            # Detectar idioma
+            language = detect_language(text)
             
-        # Detectar idioma
-        language = detect_language(text)
-        
-        # Normalizar texto
-        normalized_text = normalize_text(text)
-        
-        # Eliminar información de sesgo
-        unbiased_text = remove_bias_information(normalized_text, language)
-        
-        # Tokenizar y eliminar stopwords
-        tokens = tokenize_text(unbiased_text, language)
-        
-        # Guardar texto procesado
-        processed_docs[doc_id] = {
-            'text': ' '.join(tokens),
-            'language': language,
-            'tokens': tokens
-        }
+            # Normalizar texto
+            normalized_text = normalize_text(text)
+            
+            # Eliminar información de sesgo
+            unbiased_text = remove_bias_information(normalized_text, language)
+            
+            # Tokenizar y eliminar stopwords
+            tokens = tokenize_text(unbiased_text, language)
+            
+            # Guardar texto procesado
+            processed_docs[doc_id] = {
+                'text': ' '.join(tokens),
+                'language': language,
+                'tokens': tokens
+            }
+        except Exception as e:
+            logger.warning(f"Error al procesar documento {doc_id}: {str(e)}")
+            # En caso de error, guardar un formato consistente
+            processed_docs[doc_id] = {
+                'text': str(text)[:1000] if text else "",  # Limitar longitud para evitar problemas
+                'language': 'es',
+                'tokens': []
+            }
     
     return processed_docs
