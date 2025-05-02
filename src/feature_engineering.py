@@ -298,8 +298,21 @@ def extract_features(applications_df, processed_offers, processed_cvs):
     
     # Agregar características adicionales si es necesario
     
+    # Imprimir información sobre el DataFrame de características
+    logger.info(f"DataFrame de características creado con {len(features_df)} filas")
+    logger.info(f"Columnas del DataFrame: {features_df.columns.tolist()}")
+    logger.info(f"Primeras 5 filas del DataFrame:\n{features_df.head()}")
+    
+    # Imprimir información sobre las etiquetas
+    unique_labels = set(labels)
+    label_counts = {label: labels.count(label) for label in unique_labels}
+    logger.info(f"Etiquetas únicas y sus conteos: {label_counts}")
+    
     # Convertir a matriz numpy para el modelo
     X = features_df.drop(['offer_id', 'cv_id'], axis=1).values
     y = np.array(labels)
+    
+    logger.info(f"Matriz X creada con forma {X.shape}")
+    logger.info(f"Vector y creado con forma {y.shape}")
     
     return X, y, offer_ids_list, cv_ids_list

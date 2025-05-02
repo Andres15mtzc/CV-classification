@@ -73,12 +73,42 @@ def train(args):
     """Función para entrenar el modelo."""
     X, y, offer_ids, cv_ids, _, _ = load_and_preprocess_data()
     
+    # Inspeccionar los datos antes de entrenar
+    print("\n===== INSPECCIÓN DE DATOS ANTES DEL ENTRENAMIENTO =====")
+    print(f"Tipo de y: {type(y)}")
+    print(f"Forma de y: {y.shape if hasattr(y, 'shape') else 'No tiene atributo shape'}")
+    print(f"Primeros 10 valores de y: {y[:10]}")
+    
+    # Convertir y a valores numéricos si no lo son
+    if not isinstance(y[0], (int, float, np.number)):
+        print("\nConvirtiendo valores de y a numéricos...")
+        # Mapear valores únicos a números
+        unique_values = np.unique(y)
+        value_to_num = {val: i for i, val in enumerate(unique_values)}
+        y_numeric = np.array([value_to_num[val] for val in y])
+        print(f"Mapeo de valores: {value_to_num}")
+        print(f"Primeros 10 valores de y_numeric: {y_numeric[:10]}")
+        y = y_numeric
+    
     # Verificar que hay suficientes datos para cada clase
     unique_classes, counts = np.unique(y, return_counts=True)
-    print(f"Distribución de clases: {dict(zip(unique_classes, counts))}")
+    print(f"\nDistribución de clases: {dict(zip(unique_classes, counts))}")
+    print(f"Número de clases únicas: {len(unique_classes)}")
+    
+    # Simplificar a clasificación binaria si hay demasiadas clases
+    if len(unique_classes) > 2:
+        print("\nDemasiadas clases para clasificación. Simplificando a clasificación binaria...")
+        # Convertir a clasificación binaria (0 para la clase más común, 1 para el resto)
+        most_common_class = unique_classes[np.argmax(counts)]
+        y_binary = np.where(y == most_common_class, 0, 1)
+        print(f"Clase más común ({most_common_class}) mapeada a 0, resto a 1")
+        print(f"Nueva distribución: {dict(zip(*np.unique(y_binary, return_counts=True)))}")
+        y = y_binary
+        unique_classes = np.array([0, 1])
+        counts = np.array([np.sum(y == 0), np.sum(y == 1)])
     
     if len(unique_classes) < 2 or min(counts) < 2:
-        print("ADVERTENCIA: No hay suficientes ejemplos para cada clase. Generando datos sintéticos...")
+        print("\nADVERTENCIA: No hay suficientes ejemplos para cada clase. Generando datos sintéticos...")
         # Generar datos sintéticos adicionales si es necesario
         if 0 not in unique_classes or counts[list(unique_classes).index(0)] < 2:
             # Agregar ejemplos de clase 0
@@ -99,9 +129,15 @@ def train(args):
         print(f"Datos después de generar ejemplos sintéticos: X shape={X.shape}, y shape={y.shape}")
         print(f"Nueva distribución de clases: {dict(zip(*np.unique(y, return_counts=True)))}")
     
+    # Verificar que X tiene el formato correcto
+    print(f"\nTipo de X: {type(X)}")
+    print(f"Forma de X: {X.shape if hasattr(X, 'shape') else 'No tiene atributo shape'}")
+    if hasattr(X, 'shape'):
+        print(f"Número de características: {X.shape[1] if len(X.shape) > 1 else 'No es una matriz 2D'}")
+    
     model = create_model()
     
-    print("Entrenando modelo...")
+    print("\nEntrenando modelo...")
     model, metrics, _ = train_model(X, y, model=model)
     
     # Guardar el modelo entrenado
