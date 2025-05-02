@@ -28,7 +28,7 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 logger = logging.getLogger(__name__)
 
-def train_model(X, y, model=None, test_size=0.15, val_size=0.15, random_state=42):
+def train_model(X, y, model=None, test_size=0.2, random_state=42):
     """
     Entrena un modelo XGBoost para clasificación de CVs.
     
@@ -37,7 +37,6 @@ def train_model(X, y, model=None, test_size=0.15, val_size=0.15, random_state=42
         y: Vector de etiquetas
         model: Modelo XGBoost preconfigurado (opcional)
         test_size: Proporción del conjunto de prueba
-        val_size: Proporción del conjunto de validación
         random_state: Semilla aleatoria
         
     Returns:
@@ -45,29 +44,23 @@ def train_model(X, y, model=None, test_size=0.15, val_size=0.15, random_state=42
         metrics: Diccionario con métricas de rendimiento
         data_splits: Diccionario con los conjuntos de datos divididos
     """
-    # Primero dividimos para obtener el conjunto de prueba
-    X_temp, X_test, y_temp, y_test = train_test_split(
+    # Dividir datos en conjuntos de entrenamiento y prueba
+    X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=test_size, random_state=random_state, stratify=y
     )
     
-    # Luego dividimos el resto para obtener entrenamiento y validación
-    # Calculamos el tamaño de validación relativo al conjunto temporal
-    relative_val_size = val_size / (1 - test_size)
-    
-    X_train, X_val, y_train, y_val = train_test_split(
-        X_temp, y_temp, test_size=relative_val_size, 
-        random_state=random_state, stratify=y_temp
-    )
+    # Usar el conjunto de prueba como validación también
+    X_val, y_val = X_test, y_test
     
     # Configurar modelo XGBoost si no se proporciona uno
     if model is None:
         model = xgb.XGBClassifier(
             objective='binary:logistic',
-            eval_metric=['logloss', 'auc'],
+            eval_metric='logloss',  # Especificar eval_metric aquí, no en fit
             use_label_encoder=False,
-            n_estimators=200,
-            max_depth=6,
-            learning_rate=0.05,
+            n_estimators=100,
+            max_depth=4,
+            learning_rate=0.1,
             subsample=0.8,
             colsample_bytree=0.8,
             min_child_weight=1,
@@ -78,13 +71,12 @@ def train_model(X, y, model=None, test_size=0.15, val_size=0.15, random_state=42
             random_state=random_state
         )
     
-    # Entrenar modelo con early stopping más conservador
+    # Entrenar modelo con early stopping
     model.fit(
         X_train, y_train,
-        eval_set=[(X_train, y_train), (X_val, y_val)],
-        eval_metric=['logloss', 'auc'],
-        early_stopping_rounds=20,
-        verbose=True
+        eval_set=[(X_val, y_val)],  # Solo usar conjunto de validación
+        early_stopping_rounds=10,
+        verbose=False  # Reducir la salida verbosa
     )
     
     # Registrar el mejor número de iteraciones
