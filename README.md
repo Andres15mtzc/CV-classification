@@ -9,7 +9,7 @@ Este sistema permite clasificar Currículum Vitae (CVs) según su afinidad con o
 - Análisis semántico utilizando TF-IDF
 - Extracción de palabras clave relevantes
 - Modelo de clasificación XGBoost
-- Interfaz gráfica para selección de ofertas y carga de CVs
+- Interfaz gráfica optimizada para selección de ofertas y carga de CVs
 - Métricas de rendimiento y visualizaciones
 
 ## Configuración del Entorno
@@ -61,6 +61,8 @@ Para el OCR, necesitarás instalar Tesseract:
 ## Estructura del Proyecto
 
 - `main.py`: Punto de entrada principal
+- `init_nltk.py`: Inicialización de recursos NLTK en el entorno global
+- `init_resources.py`: Script para inicializar todos los recursos necesarios
 - `src/data_loader.py`: Carga de datos desde diferentes formatos
 - `src/preprocessing.py`: Preprocesamiento de texto
 - `src/feature_engineering.py`: Extracción de características
@@ -83,6 +85,12 @@ La interfaz permite:
 - Ver detalles de la oferta seleccionada
 - Ejecutar el análisis de compatibilidad
 - Ver el resultado con el porcentaje de afinidad
+
+#### Mejoras en la Interfaz Gráfica:
+- Carga de ofertas en hilos separados para evitar bloqueos
+- Extracción inteligente de títulos de ofertas
+- Procesamiento por lotes para mejor rendimiento
+- Interfaz más responsiva durante operaciones intensivas
 
 ### Línea de Comandos
 
@@ -133,3 +141,11 @@ El sistema genera:
 - Distribución de afinidad
 - Importancia de características
 - Predicciones detalladas con porcentajes de afinidad
+
+## Notas de la Última Actualización
+
+- Optimización del rendimiento de la interfaz gráfica
+- Mejora en la extracción de títulos de ofertas de trabajo
+- Procesamiento asíncrono para evitar bloqueos de la interfaz
+- Corrección de errores en el manejo de variables en funciones lambda
+- Uso de recursos NLTK desde el entorno global de Python
