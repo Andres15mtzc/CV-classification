@@ -1,6 +1,6 @@
 import os
 import pandas as pd
-import PyPDF2
+import pypdf
 from docx import Document
 import html2text
 from PIL import Image
@@ -30,10 +30,12 @@ def extract_text_from_pdf(file_path):
     """Extrae texto de archivos PDF."""
     try:
         text = ""
-        with open(file_path, 'rb') as file:
-            reader = PyPDF2.PdfReader(file)
-            for page in reader.pages:
-                text += page.extract_text() + "\n"
+        #with open(file_path, 'rb') as file:
+        print("Processing PDF file:", file_path)
+        #    print(file)
+        reader = pypdf.PdfReader(file_path)
+        for page in reader.pages:
+            text += page.extract_text() + "\n"
         return text
     except Exception as e:
         logger.warning(f"Error al procesar PDF {file_path}: {e}")

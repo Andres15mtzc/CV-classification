@@ -52,6 +52,15 @@ def train_model(X, y, model=None, test_size=0.2, random_state=42):
     # Usar el conjunto de prueba como validación también
     X_val, y_val = X_test, y_test
     
+    # Configurar terminación temprana
+    early_stop = xgb.callback.EarlyStopping(
+        rounds=10, 
+        metric='logloss', 
+        data_name='validation',
+        save_best=True
+    )
+
+    
     # Configurar modelo XGBoost si no se proporciona uno
     if model is None:
         model = xgb.XGBClassifier(
@@ -68,15 +77,14 @@ def train_model(X, y, model=None, test_size=0.2, random_state=42):
             reg_alpha=0.1,
             reg_lambda=1,
             scale_pos_weight=1,
-            random_state=random_state
+            random_state=random_state,
+            callbacks=[early_stop]  # Añadir early stopping aquí
         )
     
     # Entrenar modelo con early stopping
     model.fit(
         X_train, y_train,
         eval_set=[(X_val, y_val)],  # Solo usar conjunto de validación
-        early_stopping_rounds=10,
-        verbose=False  # Reducir la salida verbosa
     )
     
     # Registrar el mejor número de iteraciones
