@@ -55,7 +55,7 @@ def train_model(X, y, model=None, test_size=0.2, random_state=42):
     # Configurar terminación temprana
     early_stop = xgb.callback.EarlyStopping(
         rounds=10, 
-        metric='logloss', 
+        metric_name='logloss', 
         data_name='validation',
         save_best=True
     )

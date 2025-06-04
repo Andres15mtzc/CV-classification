@@ -30,9 +30,6 @@ def extract_text_from_pdf(file_path):
     """Extrae texto de archivos PDF."""
     try:
         text = ""
-        #with open(file_path, 'rb') as file:
-        print("Processing PDF file:", file_path)
-        #    print(file)
         reader = pypdf.PdfReader(file_path)
         for page in reader.pages:
             text += page.extract_text() + "\n"
