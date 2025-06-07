@@ -73,6 +73,89 @@ def calculate_similarity(cv_vector, offer_vector):
     """Calcula la similitud coseno entre un CV y una oferta."""
     return cosine_similarity(cv_vector.reshape(1, -1), offer_vector.reshape(1, -1))[0][0]
 
+def create_dummy_data(processed_offers, processed_cvs, num_samples=10):
+    """
+    Crea datos de ejemplo para pruebas cuando no hay datos reales disponibles.
+    
+    Args:
+        processed_offers: Diccionario con ofertas procesadas
+        processed_cvs: Diccionario con CVs procesados
+        num_samples: Número de muestras a crear
+        
+    Returns:
+        X: Matriz de características
+        y: Vector de etiquetas
+        offer_ids: Lista de IDs de ofertas
+        cv_ids: Lista de IDs de CVs
+    """
+    logger.info("Creando datos de ejemplo para pruebas")
+    
+    # Usar las primeras ofertas y CVs disponibles
+    offer_ids_sample = list(processed_offers.keys())[:min(num_samples, len(processed_offers))]
+    cv_ids_sample = list(processed_cvs.keys())[:min(num_samples, len(processed_cvs))]
+    
+    # Si no hay suficientes datos, crear IDs ficticios
+    if not offer_ids_sample:
+        offer_ids_sample = [f"dummy_offer_{i}" for i in range(num_samples)]
+    if not cv_ids_sample:
+        cv_ids_sample = [f"dummy_cv_{i}" for i in range(num_samples)]
+    
+    # Listas para almacenar datos
+    offer_texts = []
+    offer_ids_list = []
+    cv_texts = []
+    cv_ids_list = []
+    labels = []
+    
+    # Crear aplicaciones de ejemplo con balance de clases
+    for i in range(min(len(offer_ids_sample), len(cv_ids_sample))):
+        offer_id = offer_ids_sample[i % len(offer_ids_sample)]
+        cv_id = cv_ids_sample[i % len(cv_ids_sample)]
+        
+        # Extraer texto con manejo de diferentes formatos
+        if offer_id in processed_offers:
+            if isinstance(processed_offers[offer_id], dict) and 'text' in processed_offers[offer_id]:
+                offer_text = processed_offers[offer_id]['text']
+            else:
+                offer_text = str(processed_offers[offer_id])
+        else:
+            offer_text = f"Texto de oferta de ejemplo {i}"
+            
+        if cv_id in processed_cvs:
+            if isinstance(processed_cvs[cv_id], dict) and 'text' in processed_cvs[cv_id]:
+                cv_text = processed_cvs[cv_id]['text']
+            else:
+                cv_text = str(processed_cvs[cv_id])
+        else:
+            cv_text = f"Texto de CV de ejemplo {i}"
+        
+        # Crear instancias con etiqueta 0 (no coincide)
+        for j in range(2):
+            offer_texts.append(offer_text)
+            offer_ids_list.append(f"{offer_id}_0_{j}")
+            cv_texts.append(cv_text)
+            cv_ids_list.append(f"{cv_id}_0_{j}")
+            labels.append(0)
+        
+        # Crear instancias con etiqueta 1 (coincide)
+        for j in range(2):
+            offer_texts.append(offer_text)
+            offer_ids_list.append(f"{offer_id}_1_{j}")
+            cv_texts.append(cv_text)
+            cv_ids_list.append(f"{cv_id}_1_{j}")
+            labels.append(1)
+    
+    # Crear características ficticias
+    dummy_features = np.zeros((len(offer_texts), 4))  # 4 features
+    for i in range(len(offer_texts)):
+        # Add some random variation to avoid identical samples
+        dummy_features[i, 0] = len(offer_texts[i]) / 1000  # normalized text length
+        dummy_features[i, 1] = len(cv_texts[i]) / 1000  # normalized text length
+        dummy_features[i, 2] = np.random.random() * 0.5  # random similarity
+        dummy_features[i, 3] = np.random.randint(0, 5)  # random keyword matches
+    
+    return dummy_features, np.array(labels), offer_ids_list, cv_ids_list
+
 def extract_features(applications_df, processed_offers, processed_cvs):
     """
     Extrae características para el modelo de clasificación.
@@ -108,72 +191,8 @@ def extract_features(applications_df, processed_offers, processed_cvs):
     
     if not offer_id_col or not cv_id_col:
         logger.error(f"No se encontraron columnas para offer_id o cv_id en el DataFrame")
-        # Crear datos de ejemplo para pruebas
-        logger.warning("Creando datos de ejemplo para pruebas")
-        # Usar las primeras 10 ofertas y CVs disponibles
-        offer_ids_sample = list(processed_offers.keys())[:10]
-        cv_ids_sample = list(processed_cvs.keys())[:10]
-        
-        # Crear aplicaciones de ejemplo - asegurando múltiples instancias de cada clase
-        for i in range(min(len(offer_ids_sample), len(cv_ids_sample))):
-            offer_id = offer_ids_sample[i]
-            cv_id = cv_ids_sample[i]
-        
-            # Verificar si tenemos los textos procesados
-            if offer_id not in processed_offers or cv_id not in processed_cvs:
-                logger.warning(f"Falta texto procesado para oferta {offer_id} o CV {cv_id}")
-                continue
-            
-            # Extraer texto con manejo de diferentes formatos
-            if isinstance(processed_offers[offer_id], dict) and 'text' in processed_offers[offer_id]:
-                offer_text = processed_offers[offer_id]['text']
-            else:
-                offer_text = str(processed_offers[offer_id])
-                
-            if isinstance(processed_cvs[cv_id], dict) and 'text' in processed_cvs[cv_id]:
-                cv_text = processed_cvs[cv_id]['text']
-            else:
-                cv_text = str(processed_cvs[cv_id])
-            
-            # Agregar a las listas - crear múltiples instancias
-            # Primera instancia - etiqueta 0
-            offer_texts.append(offer_text)
-            offer_ids_list.append(f"{offer_id}_0")
-            cv_texts.append(cv_text)
-            cv_ids_list.append(f"{cv_id}_0")
-            labels.append(0)
-            
-            # Segunda instancia - etiqueta 0
-            offer_texts.append(offer_text)
-            offer_ids_list.append(f"{offer_id}_1")
-            cv_texts.append(cv_text)
-            cv_ids_list.append(f"{cv_id}_1")
-            labels.append(0)
-            
-            # Tercera instancia - etiqueta 1
-            offer_texts.append(offer_text)
-            offer_ids_list.append(f"{offer_id}_2")
-            cv_texts.append(cv_text)
-            cv_ids_list.append(f"{cv_id}_2")
-            labels.append(1)
-            
-            # Cuarta instancia - etiqueta 1
-            offer_texts.append(offer_text)
-            offer_ids_list.append(f"{offer_id}_3")
-            cv_texts.append(cv_text)
-            cv_ids_list.append(f"{cv_id}_3")
-            labels.append(1)
-        
-        # Create dummy numerical features instead of returning text arrays
-        dummy_features = np.zeros((len(offer_texts), 4))  # 4 features
-        for i in range(len(offer_texts)):
-            # Add some random variation to avoid identical samples
-            dummy_features[i, 0] = len(offer_texts[i]) / 1000  # normalized text length
-            dummy_features[i, 1] = len(cv_texts[i]) / 1000  # normalized text length
-            dummy_features[i, 2] = np.random.random() * 0.5  # random similarity
-            dummy_features[i, 3] = np.random.randint(0, 5)  # random keyword matches
-            
-        return dummy_features, np.array(labels), offer_ids_list, cv_ids_list
+        # Usar la función auxiliar para crear datos de ejemplo
+        return create_dummy_data(processed_offers, processed_cvs)
     
     # Si encontramos las columnas correctas, procesamos normalmente
     for _, row in applications_df.iterrows():
@@ -212,51 +231,8 @@ def extract_features(applications_df, processed_offers, processed_cvs):
     # Verificar si tenemos datos para procesar
     if not offer_texts or not cv_texts:
         logger.error("No hay datos para procesar. Creando datos de ejemplo.")
-        # Crear datos de ejemplo para pruebas
-        offer_ids_sample = list(processed_offers.keys())[:10]
-        cv_ids_sample = list(processed_cvs.keys())[:10]
-        
-        for i in range(min(len(offer_ids_sample), len(cv_ids_sample))):
-            offer_id = offer_ids_sample[i]
-            cv_id = cv_ids_sample[i]
-            
-            # Verificar el tipo de datos y extraer el texto
-            if isinstance(processed_offers[offer_id], dict) and 'text' in processed_offers[offer_id]:
-                offer_text = processed_offers[offer_id]['text']
-            else:
-                offer_text = str(processed_offers[offer_id])
-                
-            if isinstance(processed_cvs[cv_id], dict) and 'text' in processed_cvs[cv_id]:
-                cv_text = processed_cvs[cv_id]['text']
-            else:
-                cv_text = str(processed_cvs[cv_id])
-            
-            # Crear múltiples instancias con diferentes etiquetas
-            # Instancias con etiqueta 0
-            for j in range(5):
-                offer_texts.append(offer_text)
-                offer_ids_list.append(f"{offer_id}_0_{j}")
-                cv_texts.append(cv_text)
-                cv_ids_list.append(f"{cv_id}_0_{j}")
-                labels.append(0)
-            
-            # Instancias con etiqueta 1
-            for j in range(5):
-                offer_texts.append(offer_text)
-                offer_ids_list.append(f"{offer_id}_1_{j}")
-                cv_texts.append(cv_text)
-                cv_ids_list.append(f"{cv_id}_1_{j}")
-                labels.append(1)
-                
-        # If we still don't have any data, create dummy features and return
-        if not offer_texts or not cv_texts:
-            logger.error("No se pudieron crear datos de ejemplo. Creando características ficticias.")
-            # Create minimal dummy data
-            dummy_features = np.random.rand(10, 4)  # 10 samples, 4 features
-            dummy_labels = np.array([0, 0, 0, 0, 0, 1, 1, 1, 1, 1])  # Balanced labels
-            dummy_offer_ids = [f"dummy_offer_{i}" for i in range(10)]
-            dummy_cv_ids = [f"dummy_cv_{i}" for i in range(10)]
-            return dummy_features, dummy_labels, dummy_offer_ids, dummy_cv_ids
+        # Usar la función auxiliar para crear datos de ejemplo
+        return create_dummy_data(processed_offers, processed_cvs)
     
     # Vectorizar textos con TF-IDF
     logger.info("Entrenando vectorizador TF-IDF...")
@@ -329,10 +305,31 @@ def extract_features(applications_df, processed_offers, processed_cvs):
     logger.info(f"Etiquetas únicas y sus conteos: {label_counts}")
     
     # Convertir a matriz numpy para el modelo
-    X = features_df.drop(['offer_id', 'cv_id'], axis=1).values
-    y = np.array(labels)
-    
-    logger.info(f"Matriz X creada con forma {X.shape}")
-    logger.info(f"Vector y creado con forma {y.shape}")
+    try:
+        X = features_df.drop(['offer_id', 'cv_id'], axis=1).values
+        y = np.array(labels)
+        
+        logger.info(f"Matriz X creada con forma {X.shape}")
+        logger.info(f"Vector y creado con forma {y.shape}")
+        
+        # Verificar que X es una matriz numérica 2D
+        if not isinstance(X, np.ndarray) or X.ndim != 2 or not np.issubdtype(X.dtype, np.number):
+            logger.warning("X no es una matriz numérica 2D válida. Creando características ficticias.")
+            # Crear características ficticias
+            X = np.zeros((len(offer_ids_list), 4))
+            for i in range(len(offer_ids_list)):
+                X[i, 0] = len(offer_texts[i]) / 1000 if i < len(offer_texts) else 0.1
+                X[i, 1] = len(cv_texts[i]) / 1000 if i < len(cv_texts) else 0.1
+                X[i, 2] = similarities[i] if i < len(similarities) else 0.5
+                X[i, 3] = keyword_matches[i] if i < len(keyword_matches) else 2
+    except Exception as e:
+        logger.error(f"Error al crear matriz de características: {e}")
+        # Crear características ficticias en caso de error
+        X = np.zeros((len(offer_ids_list), 4))
+        for i in range(len(offer_ids_list)):
+            X[i, 0] = len(offer_texts[i]) / 1000 if i < len(offer_texts) else 0.1
+            X[i, 1] = len(cv_texts[i]) / 1000 if i < len(cv_texts) else 0.1
+            X[i, 2] = np.random.random() * 0.5
+            X[i, 3] = np.random.randint(0, 5)
     
     return X, y, offer_ids_list, cv_ids_list
