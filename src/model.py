@@ -52,20 +52,11 @@ def train_model(X, y, model=None, test_size=0.2, random_state=42):
     # Usar el conjunto de prueba como validación también
     X_val, y_val = X_test, y_test
     
-    # Configurar terminación temprana
-    early_stop = xgb.callback.EarlyStopping(
-        rounds=10, 
-        metric_name='logloss', 
-        data_name='validation',
-        save_best=True
-    )
-
-    
     # Configurar modelo XGBoost si no se proporciona uno
     if model is None:
         model = xgb.XGBClassifier(
             objective='binary:logistic',
-            eval_metric='logloss',  # Especificar eval_metric aquí, no en fit
+            eval_metric='logloss',
             use_label_encoder=False,
             n_estimators=100,
             max_depth=4,
@@ -78,18 +69,22 @@ def train_model(X, y, model=None, test_size=0.2, random_state=42):
             reg_lambda=1,
             scale_pos_weight=1,
             random_state=random_state,
-            callbacks=[early_stop]  # Añadir early stopping aquí
+            early_stopping_rounds=10  # Usar early_stopping_rounds en lugar de callback
         )
     
     # Entrenar modelo con early stopping
     model.fit(
         X_train, y_train,
         eval_set=[(X_val, y_val)],  # Solo usar conjunto de validación
+        verbose=False
     )
     
-    # Registrar el mejor número de iteraciones
-    best_iteration = model.best_iteration
-    logger.info(f"Mejor iteración: {best_iteration}")
+    # Registrar el mejor número de iteraciones si está disponible
+    if hasattr(model, 'best_iteration'):
+        best_iteration = model.best_iteration
+        logger.info(f"Mejor iteración: {best_iteration}")
+    else:
+        logger.info("Early stopping no activado o no se encontró la mejor iteración")
     
     # Evaluar modelo en el conjunto de prueba
     y_pred = model.predict(X_test)
