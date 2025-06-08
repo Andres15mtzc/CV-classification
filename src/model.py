@@ -44,6 +44,27 @@ def train_model(X, y, model=None, test_size=0.2, random_state=42):
         metrics: Diccionario con métricas de rendimiento
         data_splits: Diccionario con los conjuntos de datos divididos
     """
+    # Verificar que hay suficientes datos para entrenar
+    if len(X) < 10:
+        logger.warning("Conjunto de datos muy pequeño para entrenar. Se necesitan al menos 10 muestras.")
+        raise ValueError("Conjunto de datos muy pequeño para entrenar")
+    
+    # Verificar que hay muestras de ambas clases
+    unique_classes = np.unique(y)
+    if len(unique_classes) < 2:
+        logger.warning(f"Solo hay muestras de la clase {unique_classes[0]}. Se necesitan muestras de ambas clases.")
+        raise ValueError("Se necesitan muestras de ambas clases para entrenar")
+    
+    # Calcular el peso para balancear las clases
+    class_counts = np.bincount(y)
+    if len(class_counts) > 1:
+        scale_pos_weight = class_counts[0] / class_counts[1]
+    else:
+        scale_pos_weight = 1.0
+    
+    logger.info(f"Distribución de clases: {class_counts}")
+    logger.info(f"scale_pos_weight: {scale_pos_weight}")
+    
     # Dividir datos en conjuntos de entrenamiento y prueba
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=test_size, random_state=random_state, stratify=y
@@ -67,7 +88,7 @@ def train_model(X, y, model=None, test_size=0.2, random_state=42):
             gamma=0,
             reg_alpha=0.1,
             reg_lambda=1,
-            scale_pos_weight=1,
+            scale_pos_weight=scale_pos_weight,  # Usar el valor calculado
             random_state=random_state,
             early_stopping_rounds=10  # Usar early_stopping_rounds en lugar de callback
         )
@@ -128,23 +149,38 @@ def evaluate_model(model, X, y, offer_ids, cv_ids, output_dir=OUTPUT_DIR, data_s
     """
     # Si no se proporcionan los conjuntos de datos divididos, los creamos
     if data_splits is None:
-        # Dividir datos en entrenamiento, validación y prueba
-        X_temp, X_test, y_temp, y_test, offer_ids_temp, offer_ids_test, cv_ids_temp, cv_ids_test = train_test_split(
-            X, y, offer_ids, cv_ids, test_size=0.15, random_state=42, stratify=y
-        )
-        
-        X_train, X_val, y_train, y_val, offer_ids_train, offer_ids_val, cv_ids_train, cv_ids_val = train_test_split(
-            X_temp, y_temp, offer_ids_temp, cv_ids_temp, test_size=0.15/(1-0.15), random_state=42, stratify=y_temp
-        )
+        # Verificar que hay suficientes datos para dividir
+        if len(X) < 10:
+            logger.warning("Conjunto de datos muy pequeño para evaluar. Se usará todo el conjunto.")
+            X_test, y_test = X, y
+            offer_ids_test, cv_ids_test = offer_ids, cv_ids
+        else:
+            # Dividir datos en entrenamiento, validación y prueba
+            try:
+                X_temp, X_test, y_temp, y_test, offer_ids_temp, offer_ids_test, cv_ids_temp, cv_ids_test = train_test_split(
+                    X, y, offer_ids, cv_ids, test_size=0.15, random_state=42, stratify=y
+                )
+                
+                X_train, X_val, y_train, y_val, offer_ids_train, offer_ids_val, cv_ids_train, cv_ids_val = train_test_split(
+                    X_temp, y_temp, offer_ids_temp, cv_ids_temp, test_size=0.15/(1-0.15), random_state=42, stratify=y_temp
+                )
+            except ValueError as e:
+                logger.warning(f"Error al dividir datos: {e}. Se usará todo el conjunto.")
+                X_test, y_test = X, y
+                offer_ids_test, cv_ids_test = offer_ids, cv_ids
     else:
         # Usar los conjuntos de datos proporcionados
         X_test, y_test = data_splits['X_test'], data_splits['y_test']
         
         # Necesitamos dividir los IDs de ofertas y CVs de la misma manera
         # Esto es una simplificación, en un caso real deberíamos mantener la correspondencia
-        _, offer_ids_test, _, cv_ids_test = train_test_split(
-            X, offer_ids, test_size=0.15, random_state=42, stratify=y
-        )
+        try:
+            _, offer_ids_test, _, cv_ids_test = train_test_split(
+                X, offer_ids, test_size=0.15, random_state=42, stratify=y
+            )
+        except ValueError as e:
+            logger.warning(f"Error al dividir IDs: {e}. Se usarán todos los IDs.")
+            offer_ids_test, cv_ids_test = offer_ids, cv_ids
     
     # Predecir en conjunto de prueba
     y_pred = model.predict(X_test)
@@ -199,13 +235,31 @@ def evaluate_model(model, X, y, offer_ids, cv_ids, output_dir=OUTPUT_DIR, data_s
     plt.savefig(FEATURE_IMPORTANCE_PATH)
     
     # Guardar métricas en un archivo
-    metrics = {
-        'accuracy': accuracy_score(y_test, y_pred),
-        'precision': precision_score(y_test, y_pred),
-        'recall': recall_score(y_test, y_pred),
-        'f1': f1_score(y_test, y_pred),
-        'auc': roc_auc_score(y_test, y_prob)
-    }
+    try:
+        # Verificar que hay muestras de ambas clases para calcular métricas
+        if len(np.unique(y_test)) < 2:
+            logger.warning("No hay muestras de ambas clases en el conjunto de prueba. Algunas métricas no se calcularán.")
+            metrics = {
+                'accuracy': accuracy_score(y_test, y_pred),
+                'samples_count': len(y_test),
+                'class_distribution': np.bincount(y_test).tolist()
+            }
+        else:
+            metrics = {
+                'accuracy': accuracy_score(y_test, y_pred),
+                'precision': precision_score(y_test, y_pred),
+                'recall': recall_score(y_test, y_pred),
+                'f1': f1_score(y_test, y_pred),
+                'auc': roc_auc_score(y_test, y_prob),
+                'samples_count': len(y_test),
+                'class_distribution': np.bincount(y_test).tolist()
+            }
+    except Exception as e:
+        logger.error(f"Error al calcular métricas: {e}")
+        metrics = {
+            'error': str(e),
+            'samples_count': len(y_test)
+        }
     
     with open(METRICS_PATH, 'w') as f:
         for metric_name, metric_value in metrics.items():

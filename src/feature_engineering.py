@@ -108,9 +108,20 @@ def create_dummy_data(processed_offers, processed_cvs, num_samples=10):
     labels = []
     
     # Crear aplicaciones de ejemplo con balance de clases
-    for i in range(min(len(offer_ids_sample), len(cv_ids_sample))):
-        offer_id = offer_ids_sample[i % len(offer_ids_sample)]
-        cv_id = cv_ids_sample[i % len(cv_ids_sample)]
+    total_samples = min(len(offer_ids_sample), len(cv_ids_sample)) * 4  # 4 muestras por par (2 positivas, 2 negativas)
+    
+    # Asegurar que tenemos suficientes muestras
+    if total_samples < 10:
+        total_samples = 10
+        
+    # Crear muestras positivas (50%)
+    positive_samples = total_samples // 2
+    for i in range(positive_samples):
+        offer_idx = i % len(offer_ids_sample)
+        cv_idx = i % len(cv_ids_sample)
+        
+        offer_id = offer_ids_sample[offer_idx]
+        cv_id = cv_ids_sample[cv_idx]
         
         # Extraer texto con manejo de diferentes formatos
         if offer_id in processed_offers:
@@ -129,21 +140,46 @@ def create_dummy_data(processed_offers, processed_cvs, num_samples=10):
         else:
             cv_text = f"Texto de CV de ejemplo {i}"
         
-        # Crear instancias con etiqueta 0 (no coincide)
-        for j in range(2):
-            offer_texts.append(offer_text)
-            offer_ids_list.append(f"{offer_id}_0_{j}")
-            cv_texts.append(cv_text)
-            cv_ids_list.append(f"{cv_id}_0_{j}")
-            labels.append(0)
+        # Crear instancia con etiqueta 1 (coincide)
+        offer_texts.append(offer_text)
+        offer_ids_list.append(f"{offer_id}_pos_{i}")
+        cv_texts.append(cv_text)
+        cv_ids_list.append(f"{cv_id}_pos_{i}")
+        labels.append(1)
+    
+    # Crear muestras negativas (50%)
+    negative_samples = total_samples - positive_samples
+    for i in range(negative_samples):
+        # Usar diferentes combinaciones para muestras negativas
+        offer_idx = i % len(offer_ids_sample)
+        cv_idx = (i + len(cv_ids_sample)//2) % len(cv_ids_sample)  # Usar CV diferente
         
-        # Crear instancias con etiqueta 1 (coincide)
-        for j in range(2):
-            offer_texts.append(offer_text)
-            offer_ids_list.append(f"{offer_id}_1_{j}")
-            cv_texts.append(cv_text)
-            cv_ids_list.append(f"{cv_id}_1_{j}")
-            labels.append(1)
+        offer_id = offer_ids_sample[offer_idx]
+        cv_id = cv_ids_sample[cv_idx]
+        
+        # Extraer texto con manejo de diferentes formatos
+        if offer_id in processed_offers:
+            if isinstance(processed_offers[offer_id], dict) and 'text' in processed_offers[offer_id]:
+                offer_text = processed_offers[offer_id]['text']
+            else:
+                offer_text = str(processed_offers[offer_id])
+        else:
+            offer_text = f"Texto de oferta de ejemplo {i}"
+            
+        if cv_id in processed_cvs:
+            if isinstance(processed_cvs[cv_id], dict) and 'text' in processed_cvs[cv_id]:
+                cv_text = processed_cvs[cv_id]['text']
+            else:
+                cv_text = str(processed_cvs[cv_id])
+        else:
+            cv_text = f"Texto de CV de ejemplo {i}"
+        
+        # Crear instancia con etiqueta 0 (no coincide)
+        offer_texts.append(offer_text)
+        offer_ids_list.append(f"{offer_id}_neg_{i}")
+        cv_texts.append(cv_text)
+        cv_ids_list.append(f"{cv_id}_neg_{i}")
+        labels.append(0)
     
     # Crear características ficticias
     dummy_features = np.zeros((len(offer_texts), 4))  # 4 features
