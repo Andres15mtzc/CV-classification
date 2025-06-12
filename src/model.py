@@ -79,6 +79,52 @@ def handle_class_imbalance(X, y, method='smote', random_state=42):
         logger.error(f"Error in resampling: {e}")
         return X, y
 
+def adjust_feature_importance(model, feature_names):
+    """
+    Adjusts feature importance to reduce the weight of soft skills features.
+    
+    Args:
+        model: Trained XGBoost model
+        feature_names: List of feature names
+        
+    Returns:
+        model: Model with adjusted feature importance
+    """
+    if not hasattr(model, 'feature_importances_'):
+        logger.warning("Model doesn't have feature_importances_ attribute. Skipping adjustment.")
+        return model
+    
+    # Import soft skills list from feature_engineering
+    try:
+        from feature_engineering import SOFT_SKILLS_WORDS
+        
+        # Identify features related to soft skills
+        soft_skills_indices = []
+        for i, feature in enumerate(feature_names):
+            if any(skill in feature.lower() for skill in SOFT_SKILLS_WORDS):
+                soft_skills_indices.append(i)
+        
+        # Log the number of soft skills features found
+        logger.info(f"Found {len(soft_skills_indices)} soft skills related features")
+        
+        # If we found any soft skills features, adjust their importance
+        if soft_skills_indices:
+            # Reduce importance of soft skills features by 70%
+            for idx in soft_skills_indices:
+                if idx < len(model.feature_importances_):
+                    model.feature_importances_[idx] *= 0.3
+            
+            # Normalize feature importances to sum to 1
+            total_importance = sum(model.feature_importances_)
+            if total_importance > 0:
+                model.feature_importances_ = model.feature_importances_ / total_importance
+                
+            logger.info("Adjusted feature importances to reduce soft skills weight")
+    except Exception as e:
+        logger.error(f"Error adjusting feature importance: {e}")
+    
+    return model
+
 def train_model(X, y, model=None, test_size=0.2, random_state=42, feature_selection=True, handle_imbalance=True):
     """
     Entrena un modelo XGBoost para clasificación de CVs.
@@ -177,6 +223,20 @@ def train_model(X, y, model=None, test_size=0.2, random_state=42, feature_select
         eval_set=[(X_val, y_val)],  # Solo usar conjunto de validación
         verbose=False
     )
+    
+    # Adjust feature importance to reduce weight of soft skills
+    try:
+        # Get feature names if available
+        if hasattr(model, 'get_booster') and hasattr(model.get_booster(), 'feature_names'):
+            feature_names = model.get_booster().feature_names
+        else:
+            # Create generic feature names
+            feature_names = [f'f{i}' for i in range(X_train.shape[1])]
+        
+        # Adjust feature importance
+        model = adjust_feature_importance(model, feature_names)
+    except Exception as e:
+        logger.error(f"Error in feature importance adjustment: {e}")
     
     # Registrar el mejor número de iteraciones si está disponible
     if hasattr(model, 'best_iteration'):

@@ -8,6 +8,48 @@ import re
 import os
 import random
 
+# List of soft skills words in English and Spanish to reduce their importance
+SOFT_SKILLS_WORDS = {
+    # Leadership
+    'leadership', 'liderazgo', 'leader', 'líder', 'leading', 'dirigir',
+    # Teamwork
+    'teamwork', 'trabajo en equipo', 'collaboration', 'colaboración', 'team player', 'team-player',
+    # Communication
+    'communication', 'comunicación', 'articulate', 'articulado', 'verbal', 'written', 'escrito',
+    # Adaptability
+    'adaptability', 'adaptabilidad', 'flexible', 'flexibility', 'flexibilidad', 'versatile', 'versátil',
+    # Problem-solving
+    'problem-solving', 'resolución de problemas', 'problem solver', 'solucionador',
+    # Creativity
+    'creativity', 'creatividad', 'creative', 'creativo', 'innovative', 'innovador', 'innovation', 'innovación',
+    # Work ethic
+    'work ethic', 'ética de trabajo', 'hardworking', 'trabajador', 'dedicated', 'dedicado', 'commitment', 'compromiso',
+    # Interpersonal skills
+    'interpersonal', 'interpersonales', 'people skills', 'habilidades sociales',
+    # Time management
+    'time management', 'gestión del tiempo', 'organized', 'organizado', 'punctual', 'puntual',
+    # Resilience
+    'resilience', 'resiliencia', 'resilient', 'resiliente', 'perseverance', 'perseverancia',
+    # Emotional intelligence
+    'emotional intelligence', 'inteligencia emocional', 'empathy', 'empatía', 'self-awareness', 'autoconciencia',
+    # Critical thinking
+    'critical thinking', 'pensamiento crítico', 'analytical', 'analítico', 'analysis', 'análisis',
+    # Positive attitude
+    'positive attitude', 'actitud positiva', 'optimistic', 'optimista', 'enthusiasm', 'entusiasmo',
+    # Conflict resolution
+    'conflict resolution', 'resolución de conflictos', 'mediation', 'mediación',
+    # Stress management
+    'stress management', 'manejo del estrés', 'pressure', 'presión', 'calm', 'calma',
+    # Confidence
+    'confidence', 'confianza', 'self-confidence', 'autoconfianza', 'assertive', 'asertivo',
+    # Motivation
+    'motivation', 'motivación', 'motivated', 'motivado', 'drive', 'impulso', 'proactive', 'proactivo',
+    # Responsibility
+    'responsibility', 'responsabilidad', 'accountable', 'responsable', 'reliable', 'confiable',
+    # Professionalism
+    'professionalism', 'profesionalismo', 'professional', 'profesional', 'etiquette', 'etiqueta'
+}
+
 # Configurar variable de entorno para evitar el error de torch.compiler
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 
@@ -40,6 +82,7 @@ class TextEncoder:
         )
         
         self.is_fitted = False
+        self.soft_skills_weight = 0.3  # Weight for soft skills (reduces their importance)
         
     def fit(self, texts):
         """Entrena los vectorizadores con los textos proporcionados."""
@@ -69,6 +112,28 @@ class TextEncoder:
             # Get character-level features
             char_features = self.char_vectorizer.transform(texts).toarray()
             
+            # Reduce importance of soft skills words
+            if hasattr(self.vectorizer, 'get_feature_names_out'):
+                feature_names = self.vectorizer.get_feature_names_out()
+            else:
+                # For older scikit-learn versions
+                feature_names = self.vectorizer.get_feature_names()
+                
+            # Find indices of soft skills words in the feature names
+            soft_skills_indices = []
+            for i, feature in enumerate(feature_names):
+                # Check if the feature contains any soft skill word
+                if any(skill in feature.lower() for skill in SOFT_SKILLS_WORDS):
+                    soft_skills_indices.append(i)
+            
+            # Reduce the weight of soft skills words
+            for idx in soft_skills_indices:
+                if idx < word_features.shape[1]:
+                    word_features[:, idx] *= self.soft_skills_weight
+            
+            # Log the number of soft skills words found
+            logger.info(f"Reduced importance of {len(soft_skills_indices)} soft skills related features")
+            
             # Combine both feature sets
             return np.hstack([word_features, char_features])
         except Exception as e:
@@ -86,7 +151,11 @@ def extract_keywords(text, language):
     tech_patterns = [
         r'\b(?:python|java|c\+\+|javascript|html|css|sql|nosql|mongodb|react|angular|vue|node\.js|django|flask|spring|aws|azure|gcp|docker|kubernetes|git|ci/cd|jenkins|terraform|ansible)\b',
         r'\b(?:machine learning|deep learning|nlp|computer vision|data science|big data|hadoop|spark|tableau|power bi|excel|word|powerpoint|photoshop|illustrator|indesign)\b',
-        r'\b(?:aprendizaje automático|inteligencia artificial|procesamiento de lenguaje natural|visión por computadora|ciencia de datos)\b'
+        r'\b(?:aprendizaje automático|inteligencia artificial|procesamiento de lenguaje natural|visión por computadora|ciencia de datos)\b',
+        # Add more technical skills patterns
+        r'\b(?:rest api|graphql|soap|microservices|microservicios|devops|devsecops|agile|scrum|kanban|jira|confluence)\b',
+        r'\b(?:linux|unix|windows|macos|ios|android|mobile|móvil|web|frontend|backend|fullstack|full-stack)\b',
+        r'\b(?:testing|qa|quality assurance|unit test|integration test|pruebas unitarias|pruebas de integración)\b'
     ]
     
     # Patrones para educación
@@ -109,6 +178,9 @@ def extract_keywords(text, language):
         matches = re.finditer(pattern, text.lower())
         for match in matches:
             keywords.append(match.group())
+    
+    # Filter out soft skills from keywords
+    keywords = [kw for kw in keywords if kw.lower() not in SOFT_SKILLS_WORDS]
     
     return list(set(keywords))  # Eliminar duplicados
 
@@ -361,6 +433,21 @@ def extract_features(applications_df, processed_offers, processed_cvs):
         cv_keywords.append(cv_kw)
         keyword_matches.append(matches)
     
+    # Count soft skills in each text
+    offer_soft_skills = []
+    cv_soft_skills = []
+    
+    for offer_text, cv_text in zip(offer_texts, cv_texts):
+        # Count soft skills in offer
+        offer_soft_count = sum(1 for word in offer_text.lower().split() 
+                              if any(skill == word or skill in word for skill in SOFT_SKILLS_WORDS))
+        offer_soft_skills.append(offer_soft_count)
+        
+        # Count soft skills in CV
+        cv_soft_count = sum(1 for word in cv_text.lower().split() 
+                           if any(skill == word or skill in word for skill in SOFT_SKILLS_WORDS))
+        cv_soft_skills.append(cv_soft_count)
+    
     # Crear DataFrame con características mejoradas
     features_df = pd.DataFrame({
         'offer_id': offer_ids_list,
@@ -375,7 +462,13 @@ def extract_features(applications_df, processed_offers, processed_cvs):
         'offer_unique_words': [len(set(text.split())) for text in offer_texts],
         'cv_unique_words': [len(set(text.split())) for text in cv_texts],
         'offer_keyword_density': [len(kw) / (len(text.split()) + 1) for kw, text in zip(offer_keywords, offer_texts)],
-        'cv_keyword_density': [len(kw) / (len(text.split()) + 1) for kw, text in zip(cv_keywords, cv_texts)]
+        'cv_keyword_density': [len(kw) / (len(text.split()) + 1) for kw, text in zip(cv_keywords, cv_texts)],
+        # Add new features related to soft skills
+        'offer_soft_skills_count': offer_soft_skills,
+        'cv_soft_skills_count': cv_soft_skills,
+        'offer_soft_skills_ratio': [soft / (len(text.split()) + 1) for soft, text in zip(offer_soft_skills, offer_texts)],
+        'cv_soft_skills_ratio': [soft / (len(text.split()) + 1) for soft, text in zip(cv_soft_skills, cv_texts)],
+        'tech_to_soft_ratio': [len(kw) / (soft + 1) for kw, soft in zip(cv_keywords, cv_soft_skills)]
     })
     
     # Agregar características adicionales si es necesario
