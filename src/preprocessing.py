@@ -78,11 +78,19 @@ def normalize_text(text):
     # Convertir a minúsculas
     text = text.lower()
     
-    # Eliminar caracteres especiales y números
-    text = re.sub(r'[^\w\s]', ' ', text)
-    text = re.sub(r'\d+', ' ', text)
+    # Reemplazar URLs con token especial
+    text = re.sub(r'https?://\S+|www\.\S+', ' URL ', text)
     
-    # Eliminar espacios múltiples
+    # Reemplazar emails con token especial
+    text = re.sub(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', ' EMAIL ', text)
+    
+    # Reemplazar números con token especial pero mantener años y porcentajes
+    text = re.sub(r'\b(?!(?:19|20)\d{2}\b)\d+%?\b', ' NUM ', text)
+    
+    # Mantener símbolos importantes como + # C++ .NET
+    text = re.sub(r'[^\w\s+#.\-]', ' ', text)
+    
+    # Normalizar espacios en blanco
     text = re.sub(r'\s+', ' ', text).strip()
     
     return text

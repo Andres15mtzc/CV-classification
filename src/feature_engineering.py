@@ -13,24 +13,67 @@ os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 
 logger = logging.getLogger(__name__)
 
-# Usar TF-IDF en lugar de BERT para evitar problemas de compatibilidad
+# Usar TF-IDF mejorado para codificación de texto
 class TextEncoder:
-    def __init__(self, max_features=5000):
+    def __init__(self, max_features=10000):
+        # Vectorizador principal con configuración mejorada
         self.vectorizer = TfidfVectorizer(
             max_features=max_features,
             min_df=2,
             max_df=0.85,
             stop_words='english',
-            ngram_range=(1, 2)
+            ngram_range=(1, 3),  # Include trigrams
+            analyzer='word',
+            token_pattern=r'\b[a-zA-Z][a-zA-Z0-9_]{2,}\b',  # Better token pattern
+            use_idf=True,
+            smooth_idf=True,
+            sublinear_tf=True  # Apply sublinear tf scaling (1+log(tf))
         )
         
+        # Vectorizador para características de caracteres
+        self.char_vectorizer = TfidfVectorizer(
+            analyzer='char_wb',
+            ngram_range=(2, 5),  # Character n-grams
+            max_features=5000,
+            min_df=2,
+            max_df=0.85
+        )
+        
+        self.is_fitted = False
+        
     def fit(self, texts):
-        """Entrena el vectorizador con los textos proporcionados."""
-        self.vectorizer.fit(texts)
+        """Entrena los vectorizadores con los textos proporcionados."""
+        if not texts or len(texts) < 5:
+            logger.warning("Not enough texts to fit vectorizers properly")
+            self.is_fitted = False
+            return
+            
+        try:
+            self.vectorizer.fit(texts)
+            self.char_vectorizer.fit(texts)
+            self.is_fitted = True
+        except Exception as e:
+            logger.error(f"Error fitting vectorizers: {e}")
+            self.is_fitted = False
         
     def encode(self, texts, batch_size=None):
-        """Codifica textos usando TF-IDF."""
-        return self.vectorizer.transform(texts).toarray()
+        """Codifica textos usando TF-IDF con características de palabras y caracteres."""
+        if not self.is_fitted:
+            logger.warning("Vectorizers not fitted. Returning empty array.")
+            return np.zeros((len(texts), 1))
+            
+        try:
+            # Get word-level features
+            word_features = self.vectorizer.transform(texts).toarray()
+            
+            # Get character-level features
+            char_features = self.char_vectorizer.transform(texts).toarray()
+            
+            # Combine both feature sets
+            return np.hstack([word_features, char_features])
+        except Exception as e:
+            logger.error(f"Error encoding texts: {e}")
+            return np.zeros((len(texts), 1))
 
 def extract_keywords(text, language):
     """
@@ -318,14 +361,21 @@ def extract_features(applications_df, processed_offers, processed_cvs):
         cv_keywords.append(cv_kw)
         keyword_matches.append(matches)
     
-    # Crear DataFrame con características
+    # Crear DataFrame con características mejoradas
     features_df = pd.DataFrame({
         'offer_id': offer_ids_list,
         'cv_id': cv_ids_list,
-        'bert_similarity': similarities,
+        'text_similarity': similarities,
         'keyword_matches': keyword_matches,
+        'keyword_match_ratio': [matches / (len(set(o_kw + c_kw)) + 1) for matches, o_kw, c_kw in 
+                               zip(keyword_matches, offer_keywords, cv_keywords)],
         'offer_length': [len(text.split()) for text in offer_texts],
         'cv_length': [len(text.split()) for text in cv_texts],
+        'length_ratio': [len(cv.split()) / (len(offer.split()) + 1) for cv, offer in zip(cv_texts, offer_texts)],
+        'offer_unique_words': [len(set(text.split())) for text in offer_texts],
+        'cv_unique_words': [len(set(text.split())) for text in cv_texts],
+        'offer_keyword_density': [len(kw) / (len(text.split()) + 1) for kw, text in zip(offer_keywords, offer_texts)],
+        'cv_keyword_density': [len(kw) / (len(text.split()) + 1) for kw, text in zip(cv_keywords, cv_texts)]
     })
     
     # Agregar características adicionales si es necesario

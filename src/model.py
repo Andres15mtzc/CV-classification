@@ -28,7 +28,58 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 logger = logging.getLogger(__name__)
 
-def train_model(X, y, model=None, test_size=0.2, random_state=42):
+def handle_class_imbalance(X, y, method='smote', random_state=42):
+    """
+    Handles class imbalance in the dataset.
+    
+    Args:
+        X: Feature matrix
+        y: Target vector
+        method: Resampling method ('smote', 'adasyn', 'random_over', 'random_under')
+        random_state: Random seed
+        
+    Returns:
+        X_resampled, y_resampled: Resampled dataset
+    """
+    # Check if we need to handle imbalance
+    class_counts = np.bincount(y)
+    if len(class_counts) < 2 or min(class_counts) / max(class_counts) > 0.4:
+        logger.info("Class distribution is relatively balanced. No resampling needed.")
+        return X, y
+        
+    logger.info(f"Original class distribution: {class_counts}")
+    
+    try:
+        if method == 'smote':
+            from imblearn.over_sampling import SMOTE
+            resampler = SMOTE(random_state=random_state)
+        elif method == 'adasyn':
+            from imblearn.over_sampling import ADASYN
+            resampler = ADASYN(random_state=random_state)
+        elif method == 'random_over':
+            from imblearn.over_sampling import RandomOverSampler
+            resampler = RandomOverSampler(random_state=random_state)
+        elif method == 'random_under':
+            from imblearn.under_sampling import RandomUnderSampler
+            resampler = RandomUnderSampler(random_state=random_state)
+        else:
+            logger.warning(f"Unknown resampling method: {method}. Using SMOTE.")
+            from imblearn.over_sampling import SMOTE
+            resampler = SMOTE(random_state=random_state)
+            
+        X_resampled, y_resampled = resampler.fit_resample(X, y)
+        
+        # Log new class distribution
+        new_class_counts = np.bincount(y_resampled)
+        logger.info(f"Resampled class distribution: {new_class_counts}")
+        
+        return X_resampled, y_resampled
+        
+    except Exception as e:
+        logger.error(f"Error in resampling: {e}")
+        return X, y
+
+def train_model(X, y, model=None, test_size=0.2, random_state=42, feature_selection=True, handle_imbalance=True):
     """
     Entrena un modelo XGBoost para clasificación de CVs.
     
@@ -65,32 +116,59 @@ def train_model(X, y, model=None, test_size=0.2, random_state=42):
     logger.info(f"Distribución de clases: {class_counts}")
     logger.info(f"scale_pos_weight: {scale_pos_weight}")
     
+    # Handle class imbalance if enabled
+    if handle_imbalance:
+        X, y = handle_class_imbalance(X, y, method='smote', random_state=random_state)
+    
     # Dividir datos en conjuntos de entrenamiento y prueba
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=test_size, random_state=random_state, stratify=y
     )
     
-    # Usar el conjunto de prueba como validación también
-    X_val, y_val = X_test, y_test
+    # Crear un conjunto de validación separado
+    X_train, X_val, y_train, y_val = train_test_split(
+        X_train, y_train, test_size=0.25, random_state=random_state, stratify=y_train
+    )
+    
+    # Feature selection if enabled and we have enough features
+    if feature_selection and X.shape[1] > 3:
+        from sklearn.feature_selection import SelectFromModel
+        
+        # Train a preliminary model to get feature importances
+        selector_model = xgb.XGBClassifier(
+            objective='binary:logistic',
+            n_estimators=100,
+            random_state=random_state
+        )
+        selector_model.fit(X_train, y_train)
+        
+        # Select important features
+        selector = SelectFromModel(selector_model, threshold='mean', prefit=True)
+        X_train = selector.transform(X_train)
+        X_val = selector.transform(X_val)
+        X_test = selector.transform(X_test)
+        
+        logger.info(f"Feature selection reduced features from {X.shape[1]} to {X_train.shape[1]}")
     
     # Configurar modelo XGBoost si no se proporciona uno
     if model is None:
         model = xgb.XGBClassifier(
             objective='binary:logistic',
-            eval_metric='logloss',
+            eval_metric=['logloss', 'auc'],  # Track multiple metrics
             use_label_encoder=False,
-            n_estimators=100,
-            max_depth=4,
-            learning_rate=0.1,
+            n_estimators=200,  # More trees for better performance
+            max_depth=5,  # Slightly deeper trees
+            learning_rate=0.05,  # Lower learning rate for better generalization
             subsample=0.8,
             colsample_bytree=0.8,
-            min_child_weight=1,
-            gamma=0,
-            reg_alpha=0.1,
-            reg_lambda=1,
+            colsample_bylevel=0.8,  # Add column sampling by level
+            min_child_weight=2,  # Increase to prevent overfitting
+            gamma=0.1,  # Minimum loss reduction for further partition
+            reg_alpha=0.2,  # Increase L1 regularization
+            reg_lambda=1.2,  # Increase L2 regularization
             scale_pos_weight=scale_pos_weight,  # Usar el valor calculado
             random_state=random_state,
-            early_stopping_rounds=10  # Usar early_stopping_rounds en lugar de callback
+            early_stopping_rounds=20  # More rounds before stopping
         )
     
     # Entrenar modelo con early stopping
@@ -120,10 +198,32 @@ def train_model(X, y, model=None, test_size=0.2, random_state=42):
         'auc': roc_auc_score(y_test, y_prob)
     }
     
-    # Validación cruzada
-    cv_scores = cross_val_score(model, X, y, cv=5, scoring='f1')
-    metrics['cv_f1_mean'] = cv_scores.mean()
-    metrics['cv_f1_std'] = cv_scores.std()
+    # Validación cruzada con múltiples métricas
+    from sklearn.model_selection import cross_validate
+    
+    cv_metrics = ['accuracy', 'precision', 'recall', 'f1', 'roc_auc']
+    cv_results = cross_validate(
+        model, X, y, 
+        cv=5, 
+        scoring=cv_metrics,
+        return_train_score=True
+    )
+    
+    # Add cross-validation results to metrics
+    for metric in cv_metrics:
+        test_key = f'test_{metric}'
+        if test_key in cv_results:
+            metrics[f'cv_{metric}_mean'] = cv_results[test_key].mean()
+            metrics[f'cv_{metric}_std'] = cv_results[test_key].std()
+            
+    # Check for overfitting by comparing train and test scores
+    for metric in cv_metrics:
+        train_key = f'train_{metric}'
+        test_key = f'test_{metric}'
+        if train_key in cv_results and test_key in cv_results:
+            train_score = cv_results[train_key].mean()
+            test_score = cv_results[test_key].mean()
+            metrics[f'cv_{metric}_gap'] = train_score - test_score
     
     # Crear diccionario con los conjuntos de datos
     data_splits = {
@@ -133,6 +233,63 @@ def train_model(X, y, model=None, test_size=0.2, random_state=42):
     }
     
     return model, metrics, data_splits
+
+def tune_hyperparameters(X, y, cv=5, random_state=42):
+    """
+    Performs hyperparameter tuning for the XGBoost model.
+    
+    Args:
+        X: Feature matrix
+        y: Target vector
+        cv: Number of cross-validation folds
+        random_state: Random seed
+        
+    Returns:
+        best_params: Dictionary with best hyperparameters
+    """
+    from sklearn.model_selection import RandomizedSearchCV
+    
+    # Define parameter grid
+    param_grid = {
+        'n_estimators': [100, 200, 300],
+        'max_depth': [3, 4, 5, 6],
+        'learning_rate': [0.01, 0.05, 0.1],
+        'subsample': [0.7, 0.8, 0.9],
+        'colsample_bytree': [0.7, 0.8, 0.9],
+        'min_child_weight': [1, 2, 3],
+        'gamma': [0, 0.1, 0.2],
+        'reg_alpha': [0, 0.1, 0.5, 1.0],
+        'reg_lambda': [0.5, 1.0, 1.5]
+    }
+    
+    # Create base model
+    model = xgb.XGBClassifier(
+        objective='binary:logistic',
+        use_label_encoder=False,
+        random_state=random_state
+    )
+    
+    # Set up RandomizedSearchCV
+    search = RandomizedSearchCV(
+        model,
+        param_distributions=param_grid,
+        n_iter=20,  # Number of parameter settings sampled
+        scoring='f1',
+        cv=cv,
+        verbose=1,
+        random_state=random_state,
+        n_jobs=-1
+    )
+    
+    # Perform search
+    logger.info("Starting hyperparameter tuning...")
+    search.fit(X, y)
+    
+    # Log results
+    logger.info(f"Best parameters: {search.best_params_}")
+    logger.info(f"Best score: {search.best_score_:.4f}")
+    
+    return search.best_params_
 
 def evaluate_model(model, X, y, offer_ids, cv_ids, output_dir=OUTPUT_DIR, data_splits=None):
     """
