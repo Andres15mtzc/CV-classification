@@ -44,8 +44,6 @@ Thumbs.db
 # Archivos de datos grandes
 *.parquet
 *.csv
-*.pkl
-*.model
 
 # Archivos temporales
 temp/
