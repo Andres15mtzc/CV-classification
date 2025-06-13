@@ -667,6 +667,7 @@ def create_templates():
 {% block content %}
 <div class="row">
     <div class="col-md-12 text-center mb-4">
+        <img src="{{ url_for('static', filename='img/cvq_logo.svg') }}" alt="CVQ Logo" class="logo-large">
         <h1 class="display-4">Bienvenido a CVQ - CV's Qualification</h1>
         <p class="lead">Sistema inteligente para analizar la compatibilidad entre currículums y ofertas de trabajo</p>
     </div>
