@@ -1,0 +1,119 @@
+
+{% extends "base.html" %}
+
+{% block title %}CVQ - CV's Qualification - Inicio{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12 text-center mb-4">
+        <img src="{{ url_for('static', filename='img/cvq_logo.svg') }}" alt="CVQ Logo" class="logo-large">
+        <h1 class="display-4">Bienvenido a CVQ - CV's Qualification</h1>
+        <p class="lead">Sistema inteligente para analizar la compatibilidad entre currículums y ofertas de trabajo</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-3">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="fas fa-search me-2"></i>Analizar CV
+            </div>
+            <div class="card-body">
+                <p>Sube tu currículum y compáralo con nuestras ofertas de trabajo para encontrar la mejor coincidencia.</p>
+                <a href="{{ url_for('analyze') }}" class="btn btn-primary">Comenzar análisis</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="fas fa-upload me-2"></i>Subir Oferta
+            </div>
+            <div class="card-body">
+                <p>Añade nuevas ofertas de trabajo al sistema para ampliar la base de datos de análisis.</p>
+                <a href="{{ url_for('upload_offer') }}" class="btn btn-primary">Subir oferta</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="fas fa-briefcase me-2"></i>Ofertas disponibles
+            </div>
+            <div class="card-body">
+                <p>Explora nuestra base de datos de ofertas de trabajo disponibles para análisis.</p>
+                <p><strong>{{ offers|length }}</strong> ofertas disponibles</p>
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#offersModal">
+                    Ver ofertas
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="fas fa-cogs me-2"></i>Recursos
+            </div>
+            <div class="card-body">
+                <p>Inicializa los recursos necesarios para el análisis de texto y procesamiento de lenguaje natural.</p>
+                <a href="{{ url_for('init_nltk') }}" class="btn btn-primary">Inicializar NLTK</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de ofertas -->
+<div class="modal fade" id="offersModal" tabindex="-1" aria-labelledby="offersModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="offersModalLabel">Ofertas de trabajo disponibles</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group mb-3">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input type="text" class="form-control" id="offerSearch" placeholder="Buscar ofertas...">
+                </div>
+                
+                <div class="list-group offer-list">
+                    {% if offers %}
+                        {% for offer in offers %}
+                            <a href="{{ url_for('offer_detail', offer_id=offer.id) }}" class="list-group-item list-group-item-action">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h5 class="mb-1">{{ offer.title }}</h5>
+                                    <small>ID: {{ offer.id }}</small>
+                                </div>
+                            </a>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-3">
+                            <p>No hay ofertas disponibles</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Filtro de búsqueda para ofertas
+        $("#offerSearch").on("keyup", function() {
+            var value = $(this).val().toLowerCase();
+            $(".offer-list .list-group-item").filter(function() {
+                $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
+            });
+        });
+    });
+</script>
+{% endblock %}
