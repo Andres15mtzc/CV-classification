@@ -452,6 +452,14 @@ class CVMatcherApp:
             self.result_var.set("NO COINCIDE")
 
 def main():
+    # Asegurar que los directorios necesarios existen
+    os.makedirs("data", exist_ok=True)
+    os.makedirs("data/jobs", exist_ok=True)
+    os.makedirs("data/cvs", exist_ok=True)
+    os.makedirs("data/results", exist_ok=True)
+    os.makedirs("models", exist_ok=True)
+    
+    # Iniciar la aplicación
     root = tk.Tk()
     app = CVMatcherApp(root)
     root.mainloop()

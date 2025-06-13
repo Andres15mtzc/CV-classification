@@ -311,13 +311,23 @@ def init_nltk():
 
 # Crear directorios de plantillas y estáticos
 def create_template_directories():
-    templates_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'templates')
-    static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'static')
+    # Obtener la ruta absoluta del directorio actual
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    # Obtener el directorio raíz del proyecto (un nivel arriba)
+    root_dir = os.path.dirname(current_dir)
     
+    # Definir rutas para plantillas y archivos estáticos
+    templates_dir = os.path.join(root_dir, 'templates')
+    static_dir = os.path.join(root_dir, 'static')
+    
+    # Crear directorios si no existen
     os.makedirs(templates_dir, exist_ok=True)
     os.makedirs(static_dir, exist_ok=True)
     os.makedirs(os.path.join(static_dir, 'css'), exist_ok=True)
     os.makedirs(os.path.join(static_dir, 'js'), exist_ok=True)
+    
+    logger.info(f"Directorios de plantillas creados en: {templates_dir}")
+    logger.info(f"Directorios estáticos creados en: {static_dir}")
     
     return templates_dir, static_dir
 
@@ -327,6 +337,10 @@ def main():
     
     # Verificar si las plantillas existen, si no, crearlas
     create_templates()
+    
+    # Configurar la ubicación de las plantillas para Flask
+    app.template_folder = templates_dir
+    app.static_folder = static_dir
     
     # Iniciar la aplicación
     app.run(debug=True, host='0.0.0.0', port=5000)
