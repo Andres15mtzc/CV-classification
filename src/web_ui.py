@@ -26,7 +26,10 @@ ALLOWED_EXTENSIONS = {'pdf', 'docx', 'doc', 'txt', 'jpg', 'jpeg', 'png'}
 # Crear directorios si no existen
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-app = Flask(__name__)
+# Crear la aplicación Flask con la configuración correcta de plantillas
+app = Flask(__name__, 
+           template_folder=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'templates'),
+           static_folder=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'static'))
 app.config['SECRET_KEY'] = 'clave-secreta-para-cv-matcher'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB max
@@ -344,16 +347,17 @@ def main():
     # Verificar si las plantillas existen, si no, crearlas
     create_templates()
     
-    # Configurar la ubicación de las plantillas para Flask
-    app.template_folder = templates_dir
-    app.static_folder = static_dir
-    
     # Imprimir información de depuración
     logger.info(f"Directorio de plantillas: {app.template_folder}")
     logger.info(f"Directorio estático: {app.static_folder}")
-    logger.info(f"Plantillas existentes: {os.listdir(app.template_folder)}")
+    
+    try:
+        logger.info(f"Plantillas existentes: {os.listdir(app.template_folder)}")
+    except Exception as e:
+        logger.error(f"Error al listar plantillas: {str(e)}")
     
     # Iniciar la aplicación
+    logger.info("Iniciando servidor Flask en http://127.0.0.1:5000")
     app.run(debug=True, host='0.0.0.0', port=5000)
 
 def create_templates():
