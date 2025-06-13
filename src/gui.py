@@ -308,10 +308,7 @@ class CVMatcherApp:
     
     def select_cv(self):
         filetypes = [
-            ("Documentos", "*.pdf;*.docx;*.doc;*.txt"),
-            ("PDF", "*.pdf"),
-            ("Word", "*.docx;*.doc"),
-            ("Texto", "*.txt"),
+            ("HTML", "*.html;*.htm"),
             ("Todos los archivos", "*.*")
         ]
         
@@ -365,19 +362,10 @@ class CVMatcherApp:
                 file_extension = file_extension.lower()
                 
                 cv_text = None
-                if file_extension == '.pdf':
-                    cv_text = extract_text_from_pdf(self.cv_path)
-                elif file_extension in ['.doc', '.docx']:
-                    cv_text = extract_text_from_docx(self.cv_path)
-                elif file_extension in ['.html', '.htm']:
+                if file_extension in ['.html', '.htm']:
                     cv_text = extract_text_from_html(self.cv_path)
-                elif file_extension in ['.jpg', '.jpeg', '.png', '.tiff', '.bmp']:
-                    cv_text = extract_text_from_image(self.cv_path)
-                elif file_extension == '.txt':
-                    with open(self.cv_path, 'r', encoding='utf-8', errors='ignore') as f:
-                        cv_text = f.read()
                 else:
-                    raise ValueError(f"Formato de archivo no soportado: {file_extension}")
+                    raise ValueError(f"Solo se permiten archivos HTML. Formato no soportado: {file_extension}")
                 
                 if not cv_text:
                     raise ValueError("No se pudo extraer texto del archivo CV")
