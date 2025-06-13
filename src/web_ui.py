@@ -6,7 +6,7 @@ import pickle
 import pandas as pd
 from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
-from flask_bootstrap import Bootstrap
+# Eliminamos la dependencia de flask_bootstrap que podría no estar instalada
 from werkzeug.utils import secure_filename
 
 # Configurar logging
@@ -30,7 +30,13 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'clave-secreta-para-cv-matcher'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB max
-Bootstrap(app)
+# Intentamos inicializar Bootstrap solo si está disponible
+try:
+    from flask_bootstrap import Bootstrap
+    Bootstrap(app)
+    logger.info("Flask-Bootstrap inicializado correctamente")
+except ImportError:
+    logger.warning("Flask-Bootstrap no está instalado. La UI podría verse afectada.")
 
 # Función para verificar extensiones permitidas
 def allowed_file(filename):
@@ -342,11 +348,21 @@ def main():
     app.template_folder = templates_dir
     app.static_folder = static_dir
     
+    # Imprimir información de depuración
+    logger.info(f"Directorio de plantillas: {app.template_folder}")
+    logger.info(f"Directorio estático: {app.static_folder}")
+    logger.info(f"Plantillas existentes: {os.listdir(app.template_folder)}")
+    
     # Iniciar la aplicación
     app.run(debug=True, host='0.0.0.0', port=5000)
 
 def create_templates():
-    templates_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'templates')
+    # Obtener la ruta absoluta del directorio actual
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    # Obtener el directorio raíz del proyecto (un nivel arriba)
+    root_dir = os.path.dirname(current_dir)
+    # Definir ruta para plantillas
+    templates_dir = os.path.join(root_dir, 'templates')
     
     # Plantilla base
     base_template = """
