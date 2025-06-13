@@ -1,0 +1,7 @@
+accuracy: 0.16666666666666666
+precision: 0.0
+recall: 0.0
+f1: 0.0
+auc: 0.0
+samples_count: 6
+class_distribution: [3, 3]

@@ -23,9 +23,8 @@ build/
 *.log
 
 # Directorios de resultados
-results/
-data/
-models/
+data/cvs/
+data/jobs/
 
 # Archivos de configuración local
 .env
