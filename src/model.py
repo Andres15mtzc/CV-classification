@@ -495,6 +495,22 @@ def predict(model, X, offer_ids, cv_ids):
     Returns:
         DataFrame con predicciones y porcentajes de afinidad
     """
+    # Verificar y ajustar dimensiones de características si es necesario
+    expected_features = model.n_features_in_ if hasattr(model, 'n_features_in_') else None
+    
+    if expected_features is not None and X.shape[1] != expected_features:
+        logger.warning(f"Dimensión de características incorrecta. Esperado: {expected_features}, Obtenido: {X.shape[1]}")
+        
+        if X.shape[1] > expected_features:
+            # Si hay más características de las esperadas, recortar
+            logger.info(f"Recortando características de {X.shape[1]} a {expected_features}")
+            X = X[:, :expected_features]
+        else:
+            # Si hay menos características, rellenar con ceros
+            logger.info(f"Rellenando características de {X.shape[1]} a {expected_features}")
+            padding = np.zeros((X.shape[0], expected_features - X.shape[1]))
+            X = np.hstack((X, padding))
+    
     # Predecir
     y_pred = model.predict(X)
     y_prob = model.predict_proba(X)[:, 1]
