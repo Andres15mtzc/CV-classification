@@ -809,7 +809,7 @@ def create_templates():
                         <button type="button" class="btn btn-primary" id="browseButton">
                             <i class="fas fa-folder-open me-2"></i>Examinar archivos
                         </button>
-                        <p class="mt-2 text-muted">Formatos aceptados: PDF, DOC, DOCX, TXT, JPG, PNG</p>
+                        <p class="mt-2 text-muted">Formatos aceptados: HTML</p>
                         <div id="fileInfo" class="mt-3 d-none">
                             <div class="alert alert-info">
                                 <i class="fas fa-file-alt me-2"></i><span id="fileName"></span>
