@@ -47,7 +47,7 @@ from src.web_ui import main
 if __name__ == "__main__":
     try:
         logger.info("Iniciando aplicación web...")
-        print("\n=== CV Matcher Web UI ===")
+        print("\n=== CVQ - CV's Qualification Web UI ===")
         print("Abre tu navegador en: http://127.0.0.1:5000")
         print("Presiona Ctrl+C para detener el servidor\n")
         main()

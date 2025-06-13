@@ -8,7 +8,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 def main():
-    print("\n=== CV Matcher ===")
+    print("\n=== CVQ - CV's Qualification ===")
     print("\nSelecciona la interfaz que deseas utilizar:")
     print("1. Interfaz Gráfica (GUI)")
     print("2. Interfaz Web")

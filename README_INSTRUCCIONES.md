@@ -1,4 +1,4 @@
-# Instrucciones para ejecutar CV Matcher
+# Instrucciones para ejecutar CVQ - CV's Qualification
 
 Este proyecto ofrece dos interfaces de usuario diferentes:
 

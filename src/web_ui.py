@@ -206,6 +206,83 @@ def index():
     offers = load_job_offers()
     return render_template('index.html', offers=offers)
 
+@app.route('/upload_offer', methods=['GET', 'POST'])
+def upload_offer():
+    if request.method == 'POST':
+        # Verificar si se subió un archivo
+        if 'offer_file' not in request.files:
+            flash('No se seleccionó ningún archivo', 'warning')
+            return redirect(request.url)
+        
+        file = request.files['offer_file']
+        
+        if file.filename == '':
+            flash('No se seleccionó ningún archivo', 'warning')
+            return redirect(request.url)
+        
+        if file and allowed_file(file.filename):
+            # Generar un ID único para la oferta
+            import uuid
+            offer_id = str(uuid.uuid4())[:8]
+            
+            # Guardar el archivo
+            filename = secure_filename(f"{offer_id}_{file.filename}")
+            file_path = os.path.join(JOB_OFFERS_DIR, filename)
+            
+            # Asegurar que el directorio existe
+            os.makedirs(JOB_OFFERS_DIR, exist_ok=True)
+            
+            # Guardar el archivo
+            file.save(file_path)
+            
+            # Extraer texto del archivo
+            offer_text = ""
+            _, file_extension = os.path.splitext(file_path)
+            file_extension = file_extension.lower()
+            
+            try:
+                if file_extension == '.pdf':
+                    from src.data_loader import extract_text_from_pdf
+                    offer_text = extract_text_from_pdf(file_path)
+                elif file_extension in ['.doc', '.docx']:
+                    from src.data_loader import extract_text_from_docx
+                    offer_text = extract_text_from_docx(file_path)
+                elif file_extension in ['.html', '.htm']:
+                    from src.data_loader import extract_text_from_html
+                    offer_text = extract_text_from_html(file_path)
+                elif file_extension == '.txt':
+                    with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                        offer_text = f.read()
+                else:
+                    flash(f'Formato de archivo no soportado: {file_extension}', 'danger')
+                    return redirect(request.url)
+                
+                # Si se pudo extraer texto, guardar en un archivo de texto plano
+                if offer_text:
+                    text_file_path = os.path.join(JOB_OFFERS_DIR, f"{offer_id}.txt")
+                    with open(text_file_path, 'w', encoding='utf-8') as f:
+                        f.write(offer_text)
+                    
+                    # Eliminar el archivo original si no es txt
+                    if file_extension != '.txt':
+                        os.remove(file_path)
+                    
+                    flash('Oferta de trabajo subida correctamente', 'success')
+                    return redirect(url_for('index'))
+                else:
+                    flash('No se pudo extraer texto del archivo', 'danger')
+                    return redirect(request.url)
+                
+            except Exception as e:
+                logger.error(f"Error al procesar archivo de oferta: {str(e)}")
+                flash(f'Error al procesar el archivo: {str(e)}', 'danger')
+                return redirect(request.url)
+        else:
+            flash('Tipo de archivo no permitido', 'danger')
+            return redirect(request.url)
+    
+    return render_template('upload_offer.html')
+
 @app.route('/offer/<offer_id>')
 def offer_detail(offer_id):
     try:
@@ -626,13 +703,13 @@ def create_templates():
 {% block content %}
 <div class="row">
     <div class="col-md-12 text-center mb-4">
-        <h1 class="display-4">Bienvenido a CV Matcher</h1>
+        <h1 class="display-4">Bienvenido a CVQ - CV's Qualification</h1>
         <p class="lead">Sistema inteligente para analizar la compatibilidad entre currículums y ofertas de trabajo</p>
     </div>
 </div>
 
 <div class="row">
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="card h-100">
             <div class="card-header">
                 <i class="fas fa-search me-2"></i>Analizar CV
@@ -640,6 +717,18 @@ def create_templates():
             <div class="card-body">
                 <p>Sube tu currículum y compáralo con nuestras ofertas de trabajo para encontrar la mejor coincidencia.</p>
                 <a href="{{ url_for('analyze') }}" class="btn btn-primary">Comenzar análisis</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="fas fa-upload me-2"></i>Subir Oferta
+            </div>
+            <div class="card-body">
+                <p>Añade nuevas ofertas de trabajo al sistema para ampliar la base de datos de análisis.</p>
+                <a href="{{ url_for('upload_offer') }}" class="btn btn-primary">Subir oferta</a>
             </div>
         </div>
     </div>
@@ -730,7 +819,7 @@ def create_templates():
     analyze_template = """
 {% extends "base.html" %}
 
-{% block title %}CV Matcher - Analizar CV{% endblock %}
+{% block title %}CVQ - Analizar CV{% endblock %}
 
 {% block content %}
 <div class="row">
@@ -893,7 +982,7 @@ def create_templates():
     offer_detail_template = """
 {% extends "base.html" %}
 
-{% block title %}CV Matcher - Detalle de Oferta{% endblock %}
+{% block title %}CVQ - Detalle de Oferta{% endblock %}
 
 {% block content %}
 <div class="row mb-4">
@@ -931,7 +1020,7 @@ def create_templates():
     result_template = """
 {% extends "base.html" %}
 
-{% block title %}CV Matcher - Resultados{% endblock %}
+{% block title %}CVQ - Resultados{% endblock %}
 
 {% block content %}
 <div class="row mb-4">

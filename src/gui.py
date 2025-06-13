@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class CVMatcherApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("CV Matcher")
+        self.root.title("CVQ - CV's Qualification")
         self.root.geometry("800x600")
         self.root.minsize(800, 600)
         

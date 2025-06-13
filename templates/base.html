@@ -191,7 +191,7 @@
     <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('index') }}">
-                <i class="fas fa-file-contract me-2"></i>CV Matcher
+                <i class="fas fa-file-contract me-2"></i>CVQ - CV's Qualification
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -206,6 +206,11 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('analyze') }}">
                             <i class="fas fa-search me-1"></i>Analizar CV
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('upload_offer') }}">
+                            <i class="fas fa-upload me-1"></i>Subir Oferta
                         </a>
                     </li>
                     <li class="nav-item">
@@ -235,7 +240,7 @@
 
     <footer class="footer">
         <div class="container text-center">
-            <p class="mb-0">&copy; 2025 CV Matcher - Análisis inteligente de currículums</p>
+            <p class="mb-0">&copy; 2025 CVQ - CV's Qualification - Análisis inteligente de currículums</p>
         </div>
     </footer>
 
