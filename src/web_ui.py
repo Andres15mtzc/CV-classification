@@ -4,6 +4,8 @@ import logging
 import threading
 import pickle
 import pandas as pd
+import re
+import uuid
 from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 # Eliminamos la dependencia de flask_bootstrap que podría no estar instalada
@@ -21,7 +23,7 @@ DATA_DIR = "data"
 JOB_OFFERS_DIR = os.path.join(DATA_DIR, "jobs")
 MODELS_DIR = "models"
 UPLOAD_FOLDER = os.path.join(DATA_DIR, "uploads")
-ALLOWED_EXTENSIONS = {'pdf', 'docx', 'doc', 'txt', 'jpg', 'jpeg', 'png'}
+ALLOWED_EXTENSIONS = {'html', 'htm'}  # Solo permitimos archivos HTML
 
 # Crear directorios si no existen
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -30,7 +32,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app = Flask(__name__, 
            template_folder=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'templates'),
            static_folder=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'static'))
-app.config['SECRET_KEY'] = 'clave-secreta-para-cv-matcher'
+app.config['SECRET_KEY'] = 'clave-secreta-para-cvq-qualification'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB max
 # Intentamos inicializar Bootstrap solo si está disponible
@@ -54,59 +56,41 @@ def load_job_offers():
         # Procesar ofertas para mostrar en la interfaz
         processed_offers = []
         for offer_id, offer_text in offers_dict.items():
-            title = extract_title(offer_text)
+            title = extract_title(offer_text, offer_id)
             processed_offers.append({
                 'id': offer_id,
                 'title': title,
                 'text': offer_text[:500] + "..." if len(offer_text) > 500 else offer_text
             })
         
-        # Ordenar por título
+        # Ordenar por título (que ahora es el número de oferta)
         processed_offers.sort(key=lambda x: x['title'])
         return processed_offers
     except Exception as e:
         logger.error(f"Error al cargar ofertas: {str(e)}")
         return []
 
-# Función para extraer título de la oferta
-def extract_title(text):
-    """Extrae un título más significativo de la oferta de trabajo"""
-    if not text:
-        return "Sin título"
+# Función para extraer número de oferta del nombre del archivo o generar uno nuevo
+def extract_offer_number(filename):
+    """Extrae el número de oferta del nombre del archivo o genera uno nuevo"""
+    # Intentar extraer un número de oferta del nombre del archivo
+    match = re.search(r'oferta[_-]?(\d+)', filename.lower())
+    if match:
+        return f"Oferta #{match.group(1)}"
     
-    # Buscar patrones comunes de títulos de trabajo
-    title_patterns = [
-        r'(?i)puesto:?\s*([^\n\.]{5,50})',
-        r'(?i)posición:?\s*([^\n\.]{5,50})',
-        r'(?i)vacante:?\s*([^\n\.]{5,50})',
-        r'(?i)título:?\s*([^\n\.]{5,50})',
-        r'(?i)oferta:?\s*([^\n\.]{5,50})',
-        r'(?i)empleo:?\s*([^\n\.]{5,50})',
-        r'(?i)trabajo:?\s*([^\n\.]{5,50})'
-    ]
+    # Si no se encuentra, generar un número único
+    return f"Oferta #{uuid.uuid4().hex[:6].upper()}"
+
+# Función para extraer título de la oferta (ahora devuelve el número de oferta)
+def extract_title(text, offer_id):
+    """Devuelve el número de oferta como título"""
+    # Intentar extraer un número de oferta del ID
+    match = re.search(r'oferta[_-]?(\d+)', offer_id.lower())
+    if match:
+        return f"Oferta #{match.group(1)}"
     
-    import re
-    for pattern in title_patterns:
-        match = re.search(pattern, text)
-        if match:
-            return match.group(1).strip()
-    
-    # Si no se encuentra un patrón, usar las primeras líneas no vacías
-    lines = [line.strip() for line in text.split('\n') if line.strip()]
-    if lines:
-        # Usar la primera línea que tenga entre 5 y 50 caracteres
-        for line in lines:
-            if 5 <= len(line) <= 50:
-                return line
-        
-        # Si no hay líneas adecuadas, usar la primera línea
-        title = lines[0]
-        return title[:50] + "..." if len(title) > 50 else title
-    
-    # Si todo falla, usar las primeras palabras
-    words = text.split()
-    title = " ".join(words[:min(7, len(words))])
-    return title[:50] + "..." if len(title) > 50 else title
+    # Si el ID no contiene un número de oferta, usar el ID como número
+    return f"Oferta #{offer_id}"
 
 # Función para ejecutar la inferencia
 def run_inference(cv_path, offer_id):
@@ -221,12 +205,13 @@ def upload_offer():
             return redirect(request.url)
         
         if file and allowed_file(file.filename):
+            # Generar un número de oferta basado en el nombre del archivo o crear uno nuevo
+            offer_number = extract_offer_number(file.filename)
             # Generar un ID único para la oferta
-            import uuid
-            offer_id = str(uuid.uuid4())[:8]
+            offer_id = f"oferta_{offer_number.replace('#', '')}"
             
-            # Guardar el archivo
-            filename = secure_filename(f"{offer_id}_{file.filename}")
+            # Guardar el archivo HTML directamente
+            filename = secure_filename(f"{offer_id}.html")
             file_path = os.path.join(JOB_OFFERS_DIR, filename)
             
             # Asegurar que el directorio existe
@@ -235,27 +220,10 @@ def upload_offer():
             # Guardar el archivo
             file.save(file_path)
             
-            # Extraer texto del archivo
-            offer_text = ""
-            _, file_extension = os.path.splitext(file_path)
-            file_extension = file_extension.lower()
-            
             try:
-                if file_extension == '.pdf':
-                    from src.data_loader import extract_text_from_pdf
-                    offer_text = extract_text_from_pdf(file_path)
-                elif file_extension in ['.doc', '.docx']:
-                    from src.data_loader import extract_text_from_docx
-                    offer_text = extract_text_from_docx(file_path)
-                elif file_extension in ['.html', '.htm']:
-                    from src.data_loader import extract_text_from_html
-                    offer_text = extract_text_from_html(file_path)
-                elif file_extension == '.txt':
-                    with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                        offer_text = f.read()
-                else:
-                    flash(f'Formato de archivo no soportado: {file_extension}', 'danger')
-                    return redirect(request.url)
+                # Extraer texto del archivo HTML
+                from src.data_loader import extract_text_from_html
+                offer_text = extract_text_from_html(file_path)
                 
                 # Si se pudo extraer texto, guardar en un archivo de texto plano
                 if offer_text:
@@ -263,14 +231,10 @@ def upload_offer():
                     with open(text_file_path, 'w', encoding='utf-8') as f:
                         f.write(offer_text)
                     
-                    # Eliminar el archivo original si no es txt
-                    if file_extension != '.txt':
-                        os.remove(file_path)
-                    
                     flash('Oferta de trabajo subida correctamente', 'success')
                     return redirect(url_for('index'))
                 else:
-                    flash('No se pudo extraer texto del archivo', 'danger')
+                    flash('No se pudo extraer texto del archivo HTML', 'danger')
                     return redirect(request.url)
                 
             except Exception as e:
@@ -278,7 +242,7 @@ def upload_offer():
                 flash(f'Error al procesar el archivo: {str(e)}', 'danger')
                 return redirect(request.url)
         else:
-            flash('Tipo de archivo no permitido', 'danger')
+            flash('Solo se permiten archivos HTML', 'danger')
             return redirect(request.url)
     
     return render_template('upload_offer.html')
@@ -294,7 +258,7 @@ def offer_detail(offer_id):
             return redirect(url_for('index'))
         
         offer_text = offers_dict[offer_id]
-        title = extract_title(offer_text)
+        title = extract_title(offer_text, offer_id)
         
         return render_template('offer_detail.html', 
                               offer_id=offer_id, 
@@ -698,7 +662,7 @@ def create_templates():
     index_template = """
 {% extends "base.html" %}
 
-{% block title %}CV Matcher - Inicio{% endblock %}
+{% block title %}CVQ - CV's Qualification - Inicio{% endblock %}
 
 {% block content %}
 <div class="row">
@@ -819,7 +783,7 @@ def create_templates():
     analyze_template = """
 {% extends "base.html" %}
 
-{% block title %}CVQ - Analizar CV{% endblock %}
+{% block title %}CVQ - CV's Qualification - Analizar CV{% endblock %}
 
 {% block content %}
 <div class="row">
@@ -982,7 +946,7 @@ def create_templates():
     offer_detail_template = """
 {% extends "base.html" %}
 
-{% block title %}CVQ - Detalle de Oferta{% endblock %}
+{% block title %}CVQ - CV's Qualification - Detalle de Oferta{% endblock %}
 
 {% block content %}
 <div class="row mb-4">
@@ -1020,7 +984,7 @@ def create_templates():
     result_template = """
 {% extends "base.html" %}
 
-{% block title %}CVQ - Resultados{% endblock %}
+{% block title %}CVQ - CV's Qualification - Resultados{% endblock %}
 
 {% block content %}
 <div class="row mb-4">
