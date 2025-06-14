@@ -71,13 +71,18 @@ Para el OCR, necesitarás instalar Tesseract:
 
 ## Uso
 
-### Interfaz Gráfica
+### Interfaz de Usuario
 
-Para iniciar la interfaz gráfica:
+Para iniciar la aplicación y seleccionar la interfaz deseada:
 
 ```
-python main.py gui
+python run.py
 ```
+
+Este comando abrirá un menú que permite elegir entre:
+1. Interfaz Gráfica (GUI)
+2. Interfaz Web
+3. Salir
 
 La interfaz permite:
 - Seleccionar una oferta de trabajo de la lista disponible
@@ -86,13 +91,13 @@ La interfaz permite:
 - Ejecutar el análisis de compatibilidad
 - Ver el resultado con el porcentaje de afinidad
 
-#### Mejoras en la Interfaz Gráfica:
+#### Características de la Interfaz:
 - Carga de ofertas en hilos separados para evitar bloqueos
 - Extracción inteligente de títulos de ofertas
 - Procesamiento por lotes para mejor rendimiento
 - Interfaz más responsiva durante operaciones intensivas
 
-### Línea de Comandos
+### Línea de Comandos (para entrenamiento y pruebas)
 
 #### 1. Activar el entorno virtual (si no está activado)
 
@@ -124,6 +129,8 @@ python main.py test
 python main.py inference --cv-path ruta/al/cv.pdf --offer-id id_oferta
 ```
 
+Nota: Para las interfaces gráfica y web, utilice siempre `python run.py` en lugar de acceder directamente a los módulos individuales.
+
 ## Directorios de Datos
 
 El programa utilizará las siguientes rutas predefinidas:
@@ -132,6 +139,8 @@ El programa utilizará las siguientes rutas predefinidas:
 - `data/jobs/`: Directorio con ofertas de trabajo
 - `data/results/`: Directorio donde se guardarán los resultados
 - `models/`: Directorio donde se guardarán los modelos entrenados
+
+Nota: Al ejecutar `run.py`, estos directorios se crearán automáticamente si no existen.
 
 ## Resultados
 
