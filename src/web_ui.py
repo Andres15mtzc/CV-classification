@@ -416,12 +416,12 @@ def create_templates():
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}CV Matcher{% endblock %}</title>
+    <title>{% block title %}CVQ - CV's Qualification{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root {
-            --primary-color: #4a6fdc;
+            --primary-color: #80d5cf;
             --secondary-color: #6c757d;
             --success-color: #28a745;
             --danger-color: #dc3545;
@@ -490,8 +490,13 @@ def create_templates():
         }
         
         .btn-primary:hover {
-            background-color: #3a5fc8;
-            border-color: #3a5fc8;
+            background-color: #6fbeb8;
+            border-color: #6fbeb8;
+        }
+
+        .btn-primary:active {
+            background-color: #5ea9a3; /* más oscuro que el hover, por ejemplo */
+            border-color: #5ea9a3;
         }
         
         .footer {
@@ -603,7 +608,7 @@ def create_templates():
     <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('index') }}">
-                <i class="fas fa-file-contract me-2"></i>CV Matcher
+                <img src="{{ url_for('static', filename='img/CVQ_logo_white.png') }}" alt="CVQ Logo" class="logo-large" style="height: 40px;">
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -647,7 +652,7 @@ def create_templates():
 
     <footer class="footer">
         <div class="container text-center">
-            <p class="mb-0">&copy; 2025 CV Matcher - Análisis inteligente de currículums</p>
+            <p class="mb-0">&copy; 2025 CVQ - CV's Qualification - Análisis inteligente de currículums</p>
         </div>
     </footer>
 
@@ -667,8 +672,7 @@ def create_templates():
 {% block content %}
 <div class="row">
     <div class="col-md-12 text-center mb-4">
-        <img src="{{ url_for('static', filename='img/cvq_logo.svg') }}" alt="CVQ Logo" class="logo-large">
-        <h1 class="display-4">Bienvenido a CVQ - CV's Qualification</h1>
+        <h1 class="display-4"><strong>Bienvenido a CVQ - CV's Qualification</strong></h1>
         <p class="lead">Sistema inteligente para analizar la compatibilidad entre currículums y ofertas de trabajo</p>
     </div>
 </div>
