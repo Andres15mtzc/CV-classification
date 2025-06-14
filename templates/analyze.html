@@ -1,0 +1,160 @@
+
+{% extends "base.html" %}
+
+{% block title %}CVQ - CV's Qualification - Analizar CV{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <h1>Analizar Currículum</h1>
+        <p class="lead">Sube tu CV y selecciona una oferta de trabajo para analizar la compatibilidad</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-upload me-2"></i>Subir CV
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data" id="analyzeForm">
+                    <div class="file-upload-container" id="dropZone">
+                        <i class="fas fa-file-upload upload-icon"></i>
+                        <h4>Arrastra y suelta tu CV aquí</h4>
+                        <p>o</p>
+                        <input type="file" name="cv_file" id="cv_file" class="d-none" accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png">
+                        <button type="button" class="btn btn-primary" id="browseButton">
+                            <i class="fas fa-folder-open me-2"></i>Examinar archivos
+                        </button>
+                        <p class="mt-2 text-muted">Formatos aceptados: HTML</p>
+                        <div id="fileInfo" class="mt-3 d-none">
+                            <div class="alert alert-info">
+                                <i class="fas fa-file-alt me-2"></i><span id="fileName"></span>
+                                <button type="button" class="btn-close float-end" id="removeFile"></button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="offer_id" class="form-label">Selecciona una oferta de trabajo</label>
+                        <select class="form-select" name="offer_id" id="offer_id" required>
+                            <option value="">-- Selecciona una oferta --</option>
+                            {% for offer in offers %}
+                                <option value="{{ offer.id }}">{{ offer.title }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary" id="analyzeButton" disabled>
+                            <i class="fas fa-search me-2"></i>Analizar compatibilidad
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-info-circle me-2"></i>Información
+            </div>
+            <div class="card-body">
+                <h5>¿Cómo funciona?</h5>
+                <ol>
+                    <li>Sube tu currículum en formato PDF, DOC, DOCX o TXT</li>
+                    <li>Selecciona una oferta de trabajo de la lista</li>
+                    <li>Haz clic en "Analizar compatibilidad"</li>
+                    <li>Nuestro algoritmo analizará la compatibilidad entre tu CV y la oferta seleccionada</li>
+                    <li>Recibirás un resultado con el porcentaje de afinidad</li>
+                </ol>
+                
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Importante:</strong> Asegúrate de que tu CV esté actualizado y contenga información relevante para obtener mejores resultados.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('cv_file');
+        const browseButton = document.getElementById('browseButton');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileName = document.getElementById('fileName');
+        const removeFile = document.getElementById('removeFile');
+        const offerSelect = document.getElementById('offer_id');
+        const analyzeButton = document.getElementById('analyzeButton');
+        
+        // Evento para el botón de examinar
+        browseButton.addEventListener('click', function() {
+            fileInput.click();
+        });
+        
+        // Evento para cuando se selecciona un archivo
+        fileInput.addEventListener('change', function() {
+            updateFileInfo();
+        });
+        
+        // Eventos para arrastrar y soltar
+        dropZone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            dropZone.classList.add('border-primary');
+        });
+        
+        dropZone.addEventListener('dragleave', function() {
+            dropZone.classList.remove('border-primary');
+        });
+        
+        dropZone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            dropZone.classList.remove('border-primary');
+            
+            if (e.dataTransfer.files.length) {
+                fileInput.files = e.dataTransfer.files;
+                updateFileInfo();
+            }
+        });
+        
+        // Evento para remover archivo
+        removeFile.addEventListener('click', function() {
+            fileInput.value = '';
+            fileInfo.classList.add('d-none');
+            updateAnalyzeButtonState();
+        });
+        
+        // Evento para cambio en select de ofertas
+        offerSelect.addEventListener('change', function() {
+            updateAnalyzeButtonState();
+        });
+        
+        // Función para actualizar información del archivo
+        function updateFileInfo() {
+            if (fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                fileName.textContent = file.name;
+                fileInfo.classList.remove('d-none');
+            } else {
+                fileInfo.classList.add('d-none');
+            }
+            updateAnalyzeButtonState();
+        }
+        
+        // Función para actualizar estado del botón de análisis
+        function updateAnalyzeButtonState() {
+            if (fileInput.files.length > 0 && offerSelect.value) {
+                analyzeButton.disabled = false;
+            } else {
+                analyzeButton.disabled = true;
+            }
+        }
+    });
+</script>
+{% endblock %}
