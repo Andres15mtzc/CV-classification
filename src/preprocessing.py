@@ -24,8 +24,36 @@ except Exception as e:
 try:
     nlp_es = spacy.load('es_core_news_sm')
     nlp_en = spacy.load('en_core_web_sm')
+    spacy_available = True
 except:
-    logging.warning("Modelos de spaCy no encontrados. Ejecute: python -m spacy download es_core_news_sm en_core_web_sm")
+    logging.warning("Modelos de spaCy no encontrados. Usando fallback simple. Para mejor rendimiento ejecute: python -m spacy download es_core_news_sm en_core_web_sm")
+    spacy_available = False
+    
+    # Crear modelos de fallback simples
+    class SimpleNLP:
+        def __init__(self):
+            pass
+            
+        def __call__(self, text):
+            return SimpleDoc(text)
+    
+    class SimpleDoc:
+        def __init__(self, text):
+            self.text = text
+            self.tokens = text.split()
+            
+        def __iter__(self):
+            for token in self.tokens:
+                yield SimpleToken(token)
+    
+    class SimpleToken:
+        def __init__(self, text):
+            self.text = text
+            self.ent_type_ = ""
+            
+    # Asignar modelos de fallback
+    nlp_es = SimpleNLP()
+    nlp_en = SimpleNLP()
 
 logger = logging.getLogger(__name__)
 
@@ -50,11 +78,19 @@ def normalize_text(text):
     # Convertir a minúsculas
     text = text.lower()
     
-    # Eliminar caracteres especiales y números
-    text = re.sub(r'[^\w\s]', ' ', text)
-    text = re.sub(r'\d+', ' ', text)
+    # Reemplazar URLs con token especial
+    text = re.sub(r'https?://\S+|www\.\S+', ' URL ', text)
     
-    # Eliminar espacios múltiples
+    # Reemplazar emails con token especial
+    text = re.sub(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', ' EMAIL ', text)
+    
+    # Reemplazar números con token especial pero mantener años y porcentajes
+    text = re.sub(r'\b(?!(?:19|20)\d{2}\b)\d+%?\b', ' NUM ', text)
+    
+    # Mantener símbolos importantes como + # C++ .NET
+    text = re.sub(r'[^\w\s+#.\-]', ' ', text)
+    
+    # Normalizar espacios en blanco
     text = re.sub(r'\s+', ' ', text).strip()
     
     return text
@@ -68,6 +104,24 @@ def remove_bias_information(text, language='es'):
     - Referencias a nacionalidades
     - Información de contacto
     """
+    # Si spaCy no está disponible, usar un enfoque basado en regex
+    if not spacy_available:
+        # Eliminar información de contacto (emails, teléfonos, etc.)
+        text = re.sub(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', '[EMAIL]', text)
+        text = re.sub(r'\b(?:\+\d{1,3}[-\s]?)?\(?\d{3}\)?[-\s]?\d{3}[-\s]?\d{4}\b', '[PHONE]', text)
+        
+        # Eliminar posibles nombres propios (palabras que comienzan con mayúscula)
+        words = text.split()
+        filtered_words = []
+        for word in words:
+            # Si la palabra comienza con mayúscula y no está al inicio de una oración
+            if word and word[0].isupper() and len(filtered_words) > 0 and filtered_words[-1][-1] not in '.!?':
+                continue
+            filtered_words.append(word)
+        
+        return ' '.join(filtered_words)
+    
+    # Si spaCy está disponible, usar el enfoque basado en NER
     # Seleccionar el modelo de spaCy según el idioma
     if language.startswith('es'):
         nlp = nlp_es

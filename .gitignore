@@ -23,9 +23,8 @@ build/
 *.log
 
 # Directorios de resultados
-results/
-data/
-models/
+data/cvs/
+data/jobs/
 
 # Archivos de configuración local
 .env
@@ -44,8 +43,6 @@ Thumbs.db
 # Archivos de datos grandes
 *.parquet
 *.csv
-*.pkl
-*.model
 
 # Archivos temporales
 temp/

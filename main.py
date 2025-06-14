@@ -155,14 +155,44 @@ def test(args):
     """Función para evaluar el modelo."""
     X, y, offer_ids, cv_ids, _, _ = load_and_preprocess_data()
     
-    # Cargar modelo si existe
-    if not os.path.exists(MODEL_PATH):
-        print(f"Error: No se encontró el modelo en {MODEL_PATH}. Ejecute primero el entrenamiento.")
-        return
+    # Determinar qué modelo cargar
+    model_path = None
+    if hasattr(args, 'model_path') and args.model_path:
+        # Si se especificó un modelo, usarlo
+        model_path = os.path.join(MODELS_DIR, args.model_path)
+        if not os.path.exists(model_path):
+            print(f"Error: No se encontró el modelo en {model_path}.")
+            return
+    else:
+        # Si no se especificó, buscar el primer modelo en la carpeta
+        model_files = [f for f in os.listdir(MODELS_DIR) if f.endswith('.pkl')]
+        if not model_files:
+            print(f"Error: No se encontraron modelos en {MODELS_DIR}. Ejecute primero el entrenamiento.")
+            return
+        # Ordenar por fecha de modificación (más reciente primero)
+        model_files.sort(key=lambda x: os.path.getmtime(os.path.join(MODELS_DIR, x)), reverse=True)
+        model_path = os.path.join(MODELS_DIR, model_files[0])
     
-    print(f"Cargando modelo desde {MODEL_PATH}")
-    with open(MODEL_PATH, 'rb') as f:
+    print(f"Cargando modelo desde {model_path}")
+    with open(model_path, 'rb') as f:
         model = pickle.load(f)
+    
+    # Verificar dimensiones de características
+    if hasattr(model, 'n_features_in_'):
+        expected_features = model.n_features_in_
+        if X.shape[1] != expected_features:
+            print(f"ADVERTENCIA: Dimensión de características incorrecta. Esperado: {expected_features}, Obtenido: {X.shape[1]}")
+            print("Ajustando dimensiones de características...")
+            
+            if X.shape[1] > expected_features:
+                # Si hay más características de las esperadas, recortar
+                X = X[:, :expected_features]
+            else:
+                # Si hay menos características, rellenar con ceros
+                padding = np.zeros((X.shape[0], expected_features - X.shape[1]))
+                X = np.hstack((X, padding))
+            
+            print(f"Nuevas dimensiones de X: {X.shape}")
     
     print("Evaluando modelo...")
     evaluate_model(model, X, y, offer_ids, cv_ids)
@@ -233,7 +263,7 @@ def inference(args):
     applications_df = pd.DataFrame({
         'cv_id': [cv_id],
         'offer_id': [args.offer_id],
-        'match': [0]  # Valor ficticio, no se usa para inferencia
+        'accepted': [0]  # Valor ficticio, no se usa para inferencia
     })
     
     print("Extrayendo características...")
@@ -242,6 +272,23 @@ def inference(args):
         processed_offers, 
         processed_cvs
     )
+    
+    # Verificar dimensiones de características
+    if hasattr(model, 'n_features_in_'):
+        expected_features = model.n_features_in_
+        if X.shape[1] != expected_features:
+            print(f"ADVERTENCIA: Dimensión de características incorrecta. Esperado: {expected_features}, Obtenido: {X.shape[1]}")
+            print("Ajustando dimensiones de características...")
+            
+            if X.shape[1] > expected_features:
+                # Si hay más características de las esperadas, recortar
+                X = X[:, :expected_features]
+            else:
+                # Si hay menos características, rellenar con ceros
+                padding = np.zeros((X.shape[0], expected_features - X.shape[1]))
+                X = np.hstack((X, padding))
+            
+            print(f"Nuevas dimensiones de X: {X.shape}")
     
     print("Realizando predicción...")
     predictions = predict(model, X, offer_ids, cv_ids)
@@ -252,7 +299,7 @@ def inference(args):
     print(f"CV ID: {prediction['cv_id']}")
     print(f"Oferta ID: {prediction['offer_id']}")
     print(f"Probabilidad de coincidencia: {prediction['probability']:.2f}")
-    print(f"Predicción: {'Coincide' if prediction['prediction'] == 1 else 'No coincide'}")
+    print(f"Predicción: {'Coincide' if prediction['predicted_label'] == 1 else 'No coincide'}")
 
 def main():
     parser = argparse.ArgumentParser(description='Sistema de clasificación de CVs')
@@ -263,6 +310,7 @@ def main():
     
     # Subparser para pruebas
     test_parser = subparsers.add_parser('test', help='Evaluar el modelo')
+    test_parser.add_argument('--model-path', type=str, help='Nombre del modelo a evaluar (debe estar en la carpeta models)')
     
     # Subparser para inferencia
     inference_parser = subparsers.add_parser('inference', help='Realizar inferencia con el modelo')

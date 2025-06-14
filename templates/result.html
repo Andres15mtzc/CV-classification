@@ -1,0 +1,132 @@
+
+{% extends "base.html" %}
+
+{% block title %}CVQ - CV's Qualification - Resultados{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h1>Resultados del Análisis</h1>
+        <p class="lead">Compatibilidad entre tu CV y la oferta seleccionada</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="result-card {% if result.is_match %}result-match{% else %}result-no-match{% endif %}">
+            <h2>Resultado:</h2>
+            <div class="percentage-display">{{ result.percentage }}</div>
+            <div class="progress mt-3 mb-3">
+                <div class="progress-bar {% if result.is_match %}bg-success{% else %}bg-danger{% endif %}" 
+                     role="progressbar" 
+                     style="width: {{ result.probability * 100 }}%"
+                     aria-valuenow="{{ result.probability * 100 }}" 
+                     aria-valuemin="0" 
+                     aria-valuemax="100">
+                </div>
+            </div>
+            <div class="result-label {% if result.is_match %}match-label{% else %}no-match-label{% endif %}">
+                {% if result.is_match %}
+                    <i class="fas fa-check-circle me-2"></i>COINCIDE
+                {% else %}
+                    <i class="fas fa-times-circle me-2"></i>NO COINCIDE
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fas fa-briefcase me-2"></i>Oferta analizada
+            </div>
+            <div class="card-body">
+                <h5>{{ offer_title }}</h5>
+                <p class="text-muted">ID: {{ offer_id }}</p>
+                <div class="offer-preview">
+                    {{ offer_text[:300] + '...' if offer_text|length > 300 else offer_text }}
+                </div>
+                <a href="{{ url_for('offer_detail', offer_id=offer_id) }}" class="btn btn-outline-primary mt-3">
+                    <i class="fas fa-eye me-2"></i>Ver oferta completa
+                </a>
+            </div>
+        </div>
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fas fa-lightbulb me-2"></i>Recomendaciones
+            </div>
+            <div class="card-body">
+                {% if result.is_match %}
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <strong>¡Excelente coincidencia!</strong> Tu perfil es compatible con esta oferta de trabajo.
+                    </div>
+                    <p>Recomendaciones para mejorar aún más tu compatibilidad:</p>
+                    <ul>
+                        <li>Destaca tus logros relacionados con las habilidades requeridas</li>
+                        <li>Personaliza tu carta de presentación para esta oferta específica</li>
+                        <li>Prepárate para demostrar tus habilidades durante la entrevista</li>
+                    </ul>
+                {% else %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Compatibilidad baja.</strong> Tu perfil no coincide completamente con esta oferta.
+                    </div>
+                    <p>Recomendaciones para mejorar tu compatibilidad:</p>
+                    <ul>
+                        <li>Actualiza tu CV para destacar habilidades relevantes para esta posición</li>
+                        <li>Considera adquirir formación adicional en las áreas requeridas</li>
+                        <li>Busca ofertas más alineadas con tu perfil actual</li>
+                    </ul>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-chart-pie me-2"></i>Estadísticas
+            </div>
+            <div class="card-body">
+                <h5>Desglose de compatibilidad</h5>
+                <div class="mb-3">
+                    <label class="form-label">Compatibilidad general</label>
+                    <div class="progress">
+                        <div class="progress-bar bg-primary" role="progressbar" style="width: {{ result.probability * 100 }}%"></div>
+                    </div>
+                    <small class="text-muted">{{ result.percentage }}</small>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Umbral de coincidencia</label>
+                    <div class="progress">
+                        <div class="progress-bar bg-info" role="progressbar" style="width: 50%"></div>
+                    </div>
+                    <small class="text-muted">50%</small>
+                </div>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <small>El umbral de coincidencia es el valor mínimo de compatibilidad para considerar que un CV coincide con una oferta.</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header">
+                <i class="fas fa-cogs me-2"></i>Acciones
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('analyze') }}" class="btn btn-primary">
+                        <i class="fas fa-search me-2"></i>Nuevo análisis
+                    </a>
+                    <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-home me-2"></i>Volver al inicio
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

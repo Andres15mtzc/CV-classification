@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block title %}CVQ - Subir Oferta de Trabajo{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <h1>Subir Oferta de Trabajo</h1>
+        <p class="lead">Sube un archivo con la descripción de una oferta de trabajo para incluirla en el sistema</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-upload me-2"></i>Subir Oferta
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data" id="uploadForm">
+                    <div class="file-upload-container" id="dropZone">
+                        <i class="fas fa-briefcase upload-icon"></i>
+                        <h4>Arrastra y suelta el archivo de la oferta aquí</h4>
+                        <p>o</p>
+                        <input type="file" name="offer_file" id="offer_file" class="d-none" accept=".html">
+                        <button type="button" class="btn btn-primary" id="browseButton">
+                            <i class="fas fa-folder-open me-2"></i>Examinar archivos
+                        </button>
+                        <p class="mt-2 text-muted">Formatos aceptados: HTML</p>
+                        <div id="fileInfo" class="mt-3 d-none">
+                            <div class="alert alert-info">
+                                <i class="fas fa-file-alt me-2"></i><span id="fileName"></span>
+                                <button type="button" class="btn-close float-end" id="removeFile"></button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary" id="uploadButton" disabled>
+                            <i class="fas fa-cloud-upload-alt me-2"></i>Subir oferta
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-info-circle me-2"></i>Información
+            </div>
+            <div class="card-body">
+                <h5>¿Cómo funciona?</h5>
+                <ol>
+                    <li>Sube un archivo con la descripción de la oferta de trabajo</li>
+                    <li>El sistema extraerá el texto del archivo</li>
+                    <li>La oferta se añadirá a la base de datos para su análisis</li>
+                </ol>
+                
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Importante:</strong> Asegúrate de que el archivo contiene una descripción clara de la oferta, incluyendo requisitos y responsabilidades.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('offer_file');
+        const browseButton = document.getElementById('browseButton');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileName = document.getElementById('fileName');
+        const removeFile = document.getElementById('removeFile');
+        const uploadButton = document.getElementById('uploadButton');
+        
+        // Evento para el botón de examinar
+        browseButton.addEventListener('click', function() {
+            fileInput.click();
+        });
+        
+        // Evento para cuando se selecciona un archivo
+        fileInput.addEventListener('change', function() {
+            updateFileInfo();
+        });
+        
+        // Eventos para arrastrar y soltar
+        dropZone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            dropZone.classList.add('border-primary');
+        });
+        
+        dropZone.addEventListener('dragleave', function() {
+            dropZone.classList.remove('border-primary');
+        });
+        
+        dropZone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            dropZone.classList.remove('border-primary');
+            
+            if (e.dataTransfer.files.length) {
+                fileInput.files = e.dataTransfer.files;
+                updateFileInfo();
+            }
+        });
+        
+        // Evento para remover archivo
+        removeFile.addEventListener('click', function() {
+            fileInput.value = '';
+            fileInfo.classList.add('d-none');
+            uploadButton.disabled = true;
+        });
+        
+        // Función para actualizar información del archivo
+        function updateFileInfo() {
+            if (fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                fileName.textContent = file.name;
+                fileInfo.classList.remove('d-none');
+                uploadButton.disabled = false;
+            } else {
+                fileInfo.classList.add('d-none');
+                uploadButton.disabled = true;
+            }
+        }
+    });
+</script>
+{% endblock %}

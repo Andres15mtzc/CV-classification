@@ -1,0 +1,7 @@
+accuracy: 0.5
+precision: 0.5
+recall: 1.0
+f1: 0.6666666666666666
+auc: 0.5
+samples_count: 6
+class_distribution: [3, 3]
